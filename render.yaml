@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: motor-reservas-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma
+    startCommand: node src/app.js
+    autoDeploy: false
+    envVars:
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+    repoPath: backend
