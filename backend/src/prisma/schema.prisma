@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Quarto {
+  id          Int       @id @default(autoincrement())
+  nome        String
+  descricao   String
+  precoNoite  Float
+  imagens     String[]
+  capacidade  Int
+  reservas    Reserva[]
+}
+
+model Reserva {
+  id          Int      @id @default(autoincrement())
+  quartoId    Int
+  quarto      Quarto   @relation(fields: [quartoId], references: [id])
+  nomeCliente String
+  email       String
+  checkin     DateTime
+  checkout    DateTime
+  total       Float
+  status      String   @default("pendente")
+  criadoEm    DateTime @default(now())
+}
