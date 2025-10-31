@@ -18,6 +18,10 @@ Este serviço gerencia reservas de quartos, com validação de conflitos de per�
 ## Porta padrão
 • `PORT=4200`
 
+## Rede e Bind
+• O servidor é inicializado com bind explícito em `0.0.0.0`, garantindo acessibilidade via `localhost` e endereço IP local. Isso evita recusas de conexão em alguns ambientes Windows/containers.
+• Para validar acessibilidade, teste `http://localhost:4200/health` (quando o endpoint estiver disponível) ou rotas de reservas usando `curl`/PowerShell.
+
 ## Endpoints
 • `POST /reservas` — cria reserva, valida sobreposição; retorna `201` ou `409`
 • `PUT /reservas/:id` — altera datas/status; valida conflito; `200` ou `409`
@@ -27,6 +31,15 @@ Este serviço gerencia reservas de quartos, com validação de conflitos de per�
 • `DATABASE_URL` usa SQLite (`file:./dev.db` por padrão)
 • Testes isolam banco definindo `DATABASE_URL="file:./test.db"` antes dos testes
 • `AVAILABILITY_URL` aponta para o serviço de disponibilidade (ex.: `http://localhost:4100`)
+• PIX: `MP_ACCESS_TOKEN` deve estar configurado para gerar pagamentos
+• Rate limiting (ENV):
+  - `RATE_LIMIT_RESERVAS_WINDOW_MS` (default: `60000`)
+  - `RATE_LIMIT_RESERVAS_MAX` (default: `10`)
+  - `RATE_LIMIT_PIX_WINDOW_MS` (default: `60000`)
+  - `RATE_LIMIT_PIX_MAX` (default: `10`)
+• CORS (ENV):
+  - `CORS_ALLOWED_ORIGINS` (CSV de origens permitidas). Ex.: `http://localhost:5173,http://meusite.com`
+  - Quando não definido ou vazio, o serviço permitirá `*` (útil em desenvolvimento)
 
 ## Como rodar localmente
 1. `cd services/booking`

@@ -32,7 +32,7 @@
 - **Escalada futura:** migrar para PostgreSQL na nuvem alterando `DATABASE_URL`.
 
 ## 6. Integrações externas
-- **Mercado Pago:** autenticação via `MP_ACCESS_TOKEN`, uso do método `mercadopago.payment.create` para gerar PIX.
+- **Mercado Pago:** autenticação via `MP_ACCESS_TOKEN`, uso do SDK v2 com `MercadoPagoConfig` e `Payment.create({ body })` para gerar PIX.
 - **Render/Netlify:** utilizados para deploy automatizado via GitHub Actions.
 
 ## 7. Observabilidade e operações

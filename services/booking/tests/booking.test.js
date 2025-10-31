@@ -62,6 +62,22 @@ describe("POST /reservas", () => {
       });
     expect(res.status).toBe(409);
   });
+
+  test("retorna 400 para email inválido", async () => {
+    const room = await prisma.room.findFirst({ where: { name: "Standard" } });
+    const res = await request(app)
+      .post("/reservas")
+      .send({
+        roomId: room.id,
+        checkin: "2025-11-15",
+        checkout: "2025-11-16",
+        guests: 1,
+        nomeCliente: "Hector",
+        email: "invalid-email"
+      });
+    expect(res.status).toBe(400);
+    expect(res.body?.error).toBeDefined();
+  });
 });
 
 describe("PUT /reservas/:id", () => {
@@ -134,4 +150,3 @@ describe("DELETE /reservas/:id", () => {
     expect(res2.status).toBe(400);
   });
 });
-

@@ -1,39 +1,34 @@
 services:
   - type: web
-    name: availability-service
-    env: node
-    rootDir: services/availability
-    buildCommand: npm install && npm run prisma:generate && npm run prisma:push && npm run db:seed
-    startCommand: npm run dev
-    envVars:
-      - key: DATABASE_URL
-        value: file:./dev.db
-    autoDeploy: true
-  - type: web
-    name: booking-service
-    env: node
-    rootDir: services/booking
-    buildCommand: npm install && npm run prisma:generate && npm run prisma:push && npm run db:seed
-    startCommand: npm run dev
-    envVars:
-      - key: DATABASE_URL
-        value: file:./dev.db
-      - key: AVAILABILITY_URL
-        sync: false
-      - key: MP_ACCESS_TOKEN
-        sync: false
-    autoDeploy: true
-  - type: web
     name: motor-reservas-backend
     env: node
     plan: free
     region: oregon
-    buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma
+    # --- SQLite com disco persistente (MVP) ---
+    # Para usar SQLite de forma segura no Render, anexe um disco persistente
+    # e aponte o DATABASE_URL para esse caminho. Exemplo:
+    # disk:
+    #   name: data
+    #   mountPath: /var/data
+    #   sizeGB: 2
+    # DATABASE_URL esperado: file:/var/data/dev.db
+
+    buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma db push --schema src/prisma/schema.prisma && node src/prisma/seed.js
+    # --- Postgres + migrações (recomendado para produção) ---
+    # Quando migrar para Postgres e versionar migrações Prisma, troque o buildCommand por:
+    # buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma migrate deploy --schema src/prisma/schema.prisma && node src/prisma/seed.js
+
     startCommand: node src/app.js
     autoDeploy: false
     envVars:
       - key: MP_ACCESS_TOKEN
         sync: false
       - key: DATABASE_URL
+        sync: false
+      - key: PIX_STUB
+        sync: false
+      - key: AVAILABILITY_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
         sync: false
     repoPath: backend

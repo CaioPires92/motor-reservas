@@ -1,14 +1,36 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
+import rateLimit from "express-rate-limit";
 
 dotenv.config();
 export const app = express();
 export const prisma = new PrismaClient();
 
-app.use(cors());
+// Segurança básica
+app.use(helmet());
+
+// Configuração de CORS por ambiente
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(o => o.trim())
+  .filter(Boolean);
+const corsOptions = {
+  origin: allowedOrigins.length > 0 ? allowedOrigins : "*",
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Rate limiting para consultas de disponibilidade
+const RATE_LIMIT_AVAILABILITY_WINDOW_MS = Number(process.env.RATE_LIMIT_AVAILABILITY_WINDOW_MS || 60 * 1000);
+const RATE_LIMIT_AVAILABILITY_MAX = Number(process.env.RATE_LIMIT_AVAILABILITY_MAX || 10);
+const availabilityLimiter = rateLimit({
+  windowMs: RATE_LIMIT_AVAILABILITY_WINDOW_MS,
+  max: RATE_LIMIT_AVAILABILITY_MAX,
+  message: { error: "Limite de requisições excedido. Tente novamente em 1 minuto." }
+});
 
 // Healthcheck
 app.get("/health", (req, res) => {
@@ -16,7 +38,7 @@ app.get("/health", (req, res) => {
 });
 
 // GET /availability?checkin=YYYY-MM-DD&checkout=YYYY-MM-DD&guests=2
-app.get("/availability", async (req, res) => {
+app.get("/availability", availabilityLimiter, async (req, res) => {
   try {
     const { checkin, checkout, guests } = req.query;
 
@@ -75,4 +97,3 @@ app.get("/availability", async (req, res) => {
     res.status(500).json({ error: "Erro ao consultar disponibilidade" });
   }
 });
-

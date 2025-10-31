@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+// Em desenvolvimento, force usar o proxy "/api" do Vite para evitar
+// dependência de VITE_API_URL apontando para portas inconsistentes.
+const API_BASE = import.meta.env.MODE === "production"
+    ? (import.meta.env.VITE_API_URL || "/api")
+    : "/api";
 
 export default function App() {
     const [quartos, setQuartos] = useState([]);

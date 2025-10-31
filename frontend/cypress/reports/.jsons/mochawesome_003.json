@@ -1,0 +1,110 @@
+{
+  "stats": {
+    "suites": 1,
+    "tests": 1,
+    "passes": 1,
+    "pending": 0,
+    "failures": 0,
+    "start": "2025-10-31T20:36:13.601Z",
+    "end": "2025-10-31T20:36:16.513Z",
+    "duration": 2912,
+    "testsRegistered": 1,
+    "passPercent": 100,
+    "pendingPercent": 0,
+    "other": 0,
+    "hasOther": false,
+    "skipped": 0,
+    "hasSkipped": false
+  },
+  "results": [
+    {
+      "uuid": "767ba855-4c54-4372-94f0-9f65a871a72d",
+      "title": "",
+      "fullFile": "cypress\\e2e\\fluxo-reserva.cy.js",
+      "file": "cypress\\e2e\\fluxo-reserva.cy.js",
+      "beforeHooks": [],
+      "afterHooks": [],
+      "tests": [],
+      "suites": [
+        {
+          "uuid": "8c08aec1-4164-47ff-985f-719f24b30c70",
+          "title": "Fluxo de reserva com disponibilidade e PIX",
+          "fullFile": "",
+          "file": "",
+          "beforeHooks": [],
+          "afterHooks": [],
+          "tests": [
+            {
+              "title": "lista quartos, checa disponibilidade, reserva e exibe PIX",
+              "fullTitle": "Fluxo de reserva com disponibilidade e PIX lista quartos, checa disponibilidade, reserva e exibe PIX",
+              "timedOut": null,
+              "duration": 2818,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "// Intercepta listagem de quartos\ncy.intercept('GET', '/api/quartos', {\n  fixture: 'rooms.json'\n}).as('getQuartos');\ncy.visit('/');\ncy.wait('@getQuartos');\ncy.contains('Quarto Luxo').should('be.visible');\n// Seleciona um quarto\ncy.contains('Selecionar').first().click();\n// Preenche dados\ncy.get('input[placeholder=\"Nome\"]').type('Cliente Teste');\ncy.get('input[placeholder=\"Email\"]').type('cliente@teste.com');\ncy.get('input[type=\"date\"]').first().type('2025-11-01');\ncy.get('input[type=\"date\"]').eq(1).type('2025-11-03');\ncy.get('input[placeholder=\"Hóspedes\"]').type('2');\n// Intercepta disponibilidade\ncy.intercept('GET', '/api/disponibilidade*', {\n  statusCode: 200,\n  body: {\n    availableRooms: [{\n      id: 101\n    }, {\n      id: 202\n    }]\n  }\n}).as('getDisp');\n// Checa disponibilidade\ncy.contains('Checar disponibilidade').click();\ncy.wait('@getDisp');\ncy.contains('Quarto selecionado está disponível').should('be.visible');\n// Intercepta criação de reserva\ncy.intercept('POST', '/api/reservas', {\n  statusCode: 200,\n  body: {\n    id: 123,\n    total: 350\n  }\n}).as('postReserva');\n// Intercepta PIX\ncy.intercept('POST', '/api/pagamento/pix', {\n  statusCode: 200,\n  body: {\n    qr_code_base64: 'iVBORw0KGgoAAAAN',\n    qr_code: '000201010212'\n  }\n}).as('postPix');\n// Reserva\ncy.contains('Reservar').click();\ncy.wait('@postReserva');\ncy.contains('Reserva criada! ID 123').should('be.visible');\n// PIX exibido\ncy.contains('Pague com PIX').should('be.visible');\ncy.contains('Copia e Cola:').should('be.visible');",
+              "err": {},
+              "uuid": "87ea4b84-c209-45b9-86bc-072001c883f9",
+              "parentUUID": "8c08aec1-4164-47ff-985f-719f24b30c70",
+              "isHook": false,
+              "skipped": false
+            }
+          ],
+          "suites": [],
+          "passes": [
+            "87ea4b84-c209-45b9-86bc-072001c883f9"
+          ],
+          "failures": [],
+          "pending": [],
+          "skipped": [],
+          "duration": 2818,
+          "root": false,
+          "rootEmpty": false,
+          "_timeout": 2000
+        }
+      ],
+      "passes": [],
+      "failures": [],
+      "pending": [],
+      "skipped": [],
+      "duration": 0,
+      "root": true,
+      "rootEmpty": true,
+      "_timeout": 2000
+    }
+  ],
+  "meta": {
+    "mocha": {
+      "version": "7.0.1"
+    },
+    "mochawesome": {
+      "options": {
+        "quiet": false,
+        "reportFilename": "mochawesome",
+        "saveHtml": false,
+        "saveJson": true,
+        "consoleReporter": "spec",
+        "useInlineDiffs": false,
+        "code": true
+      },
+      "version": "7.1.4"
+    },
+    "marge": {
+      "options": {
+        "reportDir": "cypress\\reports\\.jsons",
+        "html": false,
+        "json": true,
+        "overwrite": false,
+        "charts": true,
+        "reportPageTitle": "E2E Report",
+        "embeddedScreenshots": true,
+        "inlineAssets": true,
+        "saveAllAttempts": false
+      },
+      "version": "6.3.0"
+    }
+  }
+}

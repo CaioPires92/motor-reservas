@@ -5,13 +5,13 @@ npm install
 # Gere Prisma (se necessário)
 npx prisma generate --schema src/prisma/schema.prisma
 
-# Suba o servidor (porta recomendada em dev: 4001)
+# Suba o servidor (porta padrão em dev: 4000)
 # Windows PowerShell
-$env:PORT=4001; npm run dev
+$env:PORT=4000; npm run dev
 # Linux/macOS
-PORT=4001 npm run dev
+PORT=4000 npm run dev
 
-Servidor: http://localhost:4001
+Servidor: http://localhost:4000
 
 # 2️⃣ Frontend (Dev com Proxy)
 cd ../frontend
@@ -23,14 +23,16 @@ npm run dev
 
 Acesse: http://localhost:5173
 
-API (proxy dev): /api → http://localhost:4001
+API (proxy dev): /api → http://localhost:4000
 
 ---
 
-## 🔀 Alternativa Convencional
-Se preferir usar a porta 4000, libere-a e ajuste o proxy:
-- Vite `vite.config.js` → `target: 'http://localhost:4000'`
-- Backend: `PORT=4000 npm run dev`
+## 🔀 Execução integrada
+Você também pode iniciar frontend+backend juntos:
+- `cd frontend && npm run dev:full`
+Isso usa o proxy do Vite para encaminhar `'/api'` ao backend em `http://localhost:4000`.
+
+Caso altere a porta do backend, ajuste `vite.config.js` (proxy target).
 
 ## 🌐 Produção
 No build/produção o proxy não existe. Defina `VITE_API_URL` apontando

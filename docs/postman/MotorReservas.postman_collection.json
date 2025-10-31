@@ -1,0 +1,288 @@
+{
+  "info": {
+    "name": "Motor Reservas API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "apiBase", "value": "{{baseUrl}}/api" },
+    { "key": "checkin", "value": "2025-11-20" },
+    { "key": "checkout", "value": "2025-11-22" },
+    { "key": "guests", "value": "2" },
+    { "key": "reservaId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"status\": \"ok\",\n  \"pixStub\": true,\n  \"mercadoPago\": false,\n  \"availabilityConfigured\": false\n}"
+        },
+        {
+          "name": "503 Degraded",
+          "status": "Service Unavailable",
+          "code": 503,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"status\": \"degraded\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Listar Quartos",
+      "request": {
+        "method": "GET",
+        "url": "{{apiBase}}/quartos"
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "[\n  {\n    \"id\": 1,\n    \"nome\": \"Suíte Master\",\n    \"descricao\": \"Quarto amplo com vista\",\n    \"precoNoite\": 300,\n    \"imagens\": null,\n    \"capacidade\": 2\n  },\n  {\n    \"id\": 2,\n    \"nome\": \"Deluxe\",\n    \"descricao\": \"Conforto superior\",\n    \"precoNoite\": 450,\n    \"imagens\": null,\n    \"capacidade\": 3\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "Disponibilidade",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{apiBase}}/disponibilidade?checkin={{checkin}}&checkout={{checkout}}&guests={{guests}}",
+          "host": ["{{apiBase}}"],
+          "path": ["disponibilidade"],
+          "query": [
+            { "key": "checkin", "value": "{{checkin}}" },
+            { "key": "checkout", "value": "{{checkout}}" },
+            { "key": "guests", "value": "{{guests}}" }
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"availableRooms\": [\n    { \"id\": 1, \"nome\": \"Suíte Master\", \"descricao\": \"Quarto amplo com vista\", \"precoNoite\": 300, \"capacidade\": 2 }\n  ],\n  \"totalAvailable\": 1,\n  \"dateRange\": { \"checkin\": \"{{checkin}}\", \"checkout\": \"{{checkout}}\" }\n}"
+        },
+        {
+          "name": "400 Bad Request",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Parâmetros obrigatórios: checkin, checkout, guests\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Criar Reserva",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2\n}"
+        },
+        "url": "{{apiBase}}/reservas"
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"id\": 1,\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"pendente\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}"
+        },
+        {
+          "name": "400 Invalid Email",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Email inválido\"\n}"
+        },
+        {
+          "name": "409 Conflict",
+          "status": "Conflict",
+          "code": 409,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Quarto indisponível no período selecionado\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Obter Reserva por ID",
+      "request": {
+        "method": "GET",
+        "url": "{{apiBase}}/reservas/{{reservaId}}"
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"id\": {{reservaId}},\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"pendente\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}"
+        },
+        {
+          "name": "404 Not Found",
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Reserva não encontrada\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Atualizar Reserva",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"checkin\": \"2025-11-21T00:00:00.000Z\",\n  \"checkout\": \"2025-11-23T00:00:00.000Z\",\n  \"guests\": 2\n}"
+        },
+        "url": "{{apiBase}}/reservas/{{reservaId}}"
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"id\": {{reservaId}},\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-21T00:00:00.000Z\",\n  \"checkout\": \"2025-11-23T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"pendente\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}"
+        },
+        {
+          "name": "409 Conflict",
+          "status": "Conflict",
+          "code": 409,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Conflito de reserva no período solicitado\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Cancelar Reserva",
+      "request": {
+        "method": "DELETE",
+        "url": "{{apiBase}}/reservas/{{reservaId}}"
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"id\": {{reservaId}},\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"cancelada\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}"
+        },
+        {
+          "name": "404 Not Found",
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Reserva não encontrada\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Pagamento PIX",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"cliente@exemplo.com\",\n  \"total\": 350\n}"
+        },
+        "url": "{{apiBase}}/pagamento/pix"
+      },
+      "response": [
+        {
+          "name": "200 OK (stub)",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"qr_code_base64\": \"iVBORw0KGgoAAAANSUhEUgAA...\",\n  \"qr_code\": \"000201010212...\",\n  \"id\": \"stub-1698751234567\"\n}"
+        },
+        {
+          "name": "400 Invalid Email/Total",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Email ou total inválido\"\n}"
+        },
+        {
+          "name": "503 PIX Unavailable",
+          "status": "Service Unavailable",
+          "code": 503,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Pagamento PIX indisponível: token não configurado\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Listar Reservas (opcional)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{apiBase}}/reservas?quartoId=1&inicio={{checkin}}&fim={{checkout}}",
+          "host": ["{{apiBase}}"],
+          "path": ["reservas"],
+          "query": [
+            { "key": "quartoId", "value": "1" },
+            { "key": "inicio", "value": "{{checkin}}" },
+            { "key": "fim", "value": "{{checkout}}" }
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "[\n  {\n    \"id\": 1,\n    \"quartoId\": 1,\n    \"nomeCliente\": \"Cliente Teste\",\n    \"email\": \"cliente@exemplo.com\",\n    \"checkin\": \"2025-11-20T00:00:00.000Z\",\n    \"checkout\": \"2025-11-22T00:00:00.000Z\",\n    \"guests\": 2,\n    \"total\": 600,\n    \"status\": \"pendente\",\n    \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n  }\n]"
+        },
+        {
+          "name": "400 Bad Request (período incompleto)",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "body": "{\n  \"error\": \"Parâmetros de período requerem inicio e fim\"\n}"
+        }
+      ]
+    }
+  ]
+}

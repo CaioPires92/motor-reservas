@@ -1,5 +1,127 @@
 # 🏨 Motor Reservas — Plataforma de reservas com PIX e CI/CD
 
+### Links rápidos
+- [Checklist MVP](#checklist-mvp-rápido)
+- [Copiar e colar (PowerShell)](#copiar-e-colar-windows-powershell)
+- [Copiar e colar (bash)](#copiar-e-colar-bash--linuxmacos)
+- [FAQ MVP](#faq-mvp-rápido)
+- [Troubleshooting](#troubleshooting)
+- [Erros conhecidos (Prisma)](#erros-conhecidos-prisma)
+- [Exemplos de payloads](#exemplos-de-payloads-rápidos)
+ - [Rodar testes](#rodar-testes-rápido)
+
+## ⚡ Produção em 5 minutos
+
+1) Backend (Render)
+- Tipo: Web Service, Root: `backend`
+- Build: `npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma db push --schema src/prisma/schema.prisma && node src/prisma/seed.js`
+- Start: `node src/app.js`
+- Variáveis: defina `DATABASE_URL`, `PIX_STUB=true` (MVP), `CORS_ALLOWED_ORIGINS=https://seusite.netlify.app` e (opcional) `AVAILABILITY_URL`. Para PIX real: `PIX_STUB=false` + `MP_ACCESS_TOKEN`.
+
+2) Frontend (Netlify)
+- Base: `frontend`, Build: `npm ci && npm run build`, Publish: `frontend/dist`
+- Variáveis: `VITE_API_URL=https://SEU_BACKEND_RENDER.onrender.com/api`
+
+3) Validar
+- `GET https://SEU_BACKEND/health` → `{ status: "ok" }`
+- Acesse o frontend, crie uma reserva e verifique o PIX (stub ou real).
+
+Detalhes completos em: [Guia de Produção](#-guia-de-produção)
+
+## ✅ Checklist MVP (rápido)
+
+- Preparar ambiente
+  - `cp backend/.env.example backend/.env`
+  - Em `backend/.env`: `PORT=4000`, `DATABASE_URL="file:./src/prisma/dev.db"`, `PIX_STUB=true`.
+  - `cd backend && npm run prisma:push`
+  - `cd frontend && npm run dev:full` (abre `http://localhost:5173/`)
+
+- Validar fluxo
+  - Health: `GET /health` retorna `200` e `{ status: 'ok' }`.
+  - Frontend lista quartos na home.
+  - Disponibilidade: `GET /api/disponibilidade?checkin=2025-11-20&checkout=2025-11-22&guests=2` retorna `200` e `availableRooms`.
+  - Reserva cria `id` e `total` (ex.: 600 ou 350) e exibe PIX.
+  - PIX stub: mostra `qr_code_base64` e "Copia e Cola".
+  - Testes do backend: `cd backend && npm test` deve passar sem falhas.
+
+- Evitar problemas
+  - Não defina `VITE_API_URL` em dev; use base `'/api'`.
+  - Proxy do Vite: `/api → http://localhost:4000`.
+  - Se erro Prisma: pare servidores e rode `npm run prisma:push`.
+
+> Exemplos de payloads e troubleshooting detalhados abaixo.
+
+### Copiar e colar (Windows PowerShell)
+
+Execute os comandos abaixo em sequência para configurar e iniciar o ambiente, depois faça a validação em um segundo terminal:
+
+```powershell
+# Setup
+Copy-Item backend/.env.example backend/.env
+cd backend
+npm run prisma:push
+cd ../frontend
+npm run dev:full
+
+# Validação rápida (em outro terminal)
+Invoke-RestMethod http://localhost:4000/health
+Invoke-RestMethod http://localhost:4000/api/quartos
+Invoke-RestMethod "http://localhost:4000/api/disponibilidade?checkin=2025-11-20&checkout=2025-11-22&guests=2"
+$body = @{ quartoId = 1; nomeCliente = 'Cliente Teste'; email = 'cliente@exemplo.com'; checkin = ([DateTime]::Parse('2025-11-20').ToString('o')); checkout = ([DateTime]::Parse('2025-11-22').ToString('o')); guests = 2 } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/reservas -ContentType 'application/json' -Body $body
+$pix = @{ email = 'cliente@exemplo.com'; total = 350 } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/pagamento/pix -ContentType 'application/json' -Body $pix
+
+# Testes do backend (em outro terminal)
+cd backend
+npm test
+```
+
+### Copiar e colar (bash — Linux/macOS)
+
+Execute os comandos abaixo em sequência para configurar e iniciar o ambiente e validar o fluxo:
+
+```bash
+# Setup
+cp backend/.env.example backend/.env
+(cd backend && npm run prisma:push)
+(cd frontend && npm run dev:full)
+
+# Validação (em outro terminal)
+curl -s http://localhost:4000/health
+curl -s http://localhost:4000/api/quartos
+curl -s "http://localhost:4000/api/disponibilidade?checkin=2025-11-20&checkout=2025-11-22&guests=2"
+curl -s -X POST http://localhost:4000/api/reservas \
+  -H 'Content-Type: application/json' \
+  -d '{"quartoId":1,"nomeCliente":"Cliente Teste","email":"cliente@exemplo.com","checkin":"2025-11-20T00:00:00.000Z","checkout":"2025-11-22T00:00:00.000Z","guests":2}'
+curl -s -X POST http://localhost:4000/api/pagamento/pix \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"cliente@exemplo.com","total":350}'
+
+# Testes do backend (em outro terminal)
+(cd backend && npm test)
+```
+
+## ❓ FAQ MVP (rápido)
+- Preciso definir `VITE_API_URL` em desenvolvimento?
+  - Não. Em dev, o frontend usa base `'/api'` e o proxy do Vite redireciona para `http://localhost:4000`. Garanta que o backend esteja na porta `4000`. Se mudar a porta, ajuste `frontend/vite.config.js`.
+  - Veja também: "✅ Checklist MVP" e "Copiar e colar" para validação rápida.
+
+- Como resolver `Prisma P1012: Environment variable not found: DATABASE_URL`?
+  - Copie o `.env`: `cp backend/.env.example backend/.env` (ou `Copy-Item` no Windows).
+  - Em `backend/.env`, defina `DATABASE_URL` (ex.: `"file:./src/prisma/dev.db"`) e rode `npm run prisma:push` no diretório `backend`.
+  - Veja: "🧯 Troubleshooting" e "⚠️ Erros conhecidos (Prisma)" para causas e soluções.
+
+- Como ativar o PIX simulado (stub)?
+  - Defina `PIX_STUB=true` no `.env` do backend. Não é necessário `MP_ACCESS_TOKEN` para o stub.
+  - Valide com `POST /api/pagamento/pix` usando os exemplos da seção "📦 Exemplos de payloads".
+  - Em produção, use `PIX_STUB=false` e configure `MP_ACCESS_TOKEN`.
+
+- Posso mudar a porta do backend?
+  - Sim, via `PORT` no `.env` do backend. Recomenda-se manter `4000` em dev para compatibilidade com o proxy do Vite e com os comandos da checklist.
+  - Se alterar, atualize o proxy em `frontend/vite.config.js` e ajuste os comandos de validação (`curl`/`Invoke-RestMethod`).
+  - Veja: "🧯 Troubleshooting" (proxy) e `frontend/vite.config.js`.
+
 Motor Reservas é uma aplicação full stack que oferece fluxo completo de reservas de hotel, cobrança com PIX via Mercado Pago e base pronta para CI/CD com Render (backend) e Netlify (frontend). O repositório está organizado em **Node.js + Express + Prisma** no backend e **React + Vite + Tailwind** no frontend, com documentação em `docs/` e automação via GitHub Actions.
 
 ## 🚀 Estrutura do projeto
@@ -26,14 +148,31 @@ motor-reservas/
 
 ## 🔑 Variáveis de ambiente
 
-Crie `backend/.env` com:
+Crie o arquivo `.env` a partir do exemplo:
 
 ```bash
-MP_ACCESS_TOKEN=SEU_TOKEN_MERCADOPAGO
-DATABASE_URL="file:./dev.db"
+cp backend/.env.example backend/.env
 ```
 
-No Render defina os mesmos valores em **Environment Variables**. O frontend não requer `.env` por padrão, mas você pode definir `VITE_API_URL` caso deseje configurar a URL da API dinamicamente.
+Exemplo de conteúdo:
+
+```bash
+PORT=4000
+DATABASE_URL="file:./src/prisma/dev.db"
+PIX_STUB=true
+MP_ACCESS_TOKEN=
+AVAILABILITY_URL=http://localhost:4100
+```
+
+- Desenvolvimento:
+  - Mantenha `PIX_STUB=true` e não defina `MP_ACCESS_TOKEN`.
+  - Sincronize o schema do SQLite com `cd backend && npm run prisma:push`.
+  - Inicie ambos os servidores com `cd frontend && npm run dev:full`.
+  - Não defina `VITE_API_URL` em dev; o Vite proxy envia `'/api'` para `http://localhost:4000`.
+
+- Produção:
+  - Defina `MP_ACCESS_TOKEN` e use `PIX_STUB=false`.
+  - Configure as variáveis no Render (backend) e Netlify (frontend) conforme necessário.
 
 ## 🧰 Pré-requisitos
 
@@ -72,6 +211,132 @@ npm run dev
 
 O Vite servirá a aplicação em `http://localhost:5173`. A tela lista quartos, permite selecionar um quarto, cadastrar dados básicos e gerar o QR Code PIX após confirmar a reserva.【F:frontend/src/App.jsx†L5-L58】
 
+## 🧪 Rodar testes (rápido)
+
+Execute a suíte de testes do backend para garantir estabilidade do MVP:
+
+```bash
+cd backend && npm test
+```
+
+Notas rápidas:
+- Em desenvolvimento, mantenha `PIX_STUB=true` para evitar dependência de `MP_ACCESS_TOKEN`.
+- Se `PIX_STUB=false` e sem token, o endpoint `POST /api/pagamento/pix` deve retornar `503` (comportamento esperado e coberto nos testes).
+- O ambiente de teste usa SQLite e sincroniza schema automaticamente; se necessário, rode `npm run prisma:push` antes.
+
+Visualizar cobertura no CI (GitHub Actions):
+- Os jobs publicam artifacts de cobertura por componente:
+  - Backend: `backend-coverage` (caminho: `backend/coverage`)
+  - Availability: `availability-coverage` (caminho: `services/availability/coverage`)
+  - Booking: `booking-coverage` (caminho: `services/booking/coverage`)
+- Para baixar e visualizar:
+  - Acesse `Actions → execução do workflow → Artifacts`.
+  - Baixe o artifact desejado e abra `coverage/lcov-report/index.html`.
+  - Localmente, você pode rodar `npm test -- --coverage` nos diretórios correspondentes.
+
+## 🧯 Troubleshooting
+
+- `net::ERR_CONNECTION_REFUSED` no frontend
+  - Verifique se o backend está ativo em `http://localhost:4000` (o log deve exibir "Servidor rodando em http://localhost:4000").
+  - Inicie integrado com `cd frontend && npm run dev:full` para garantir proxy e ordem de inicialização.
+  - Em desenvolvimento, não defina `VITE_API_URL`; o frontend usa base `'/api'` e o proxy do Vite redireciona para `http://localhost:4000`.
+
+- Proxy do Vite não redireciona `/api`
+  - Confirme o alvo em `frontend/vite.config.js` está `http://localhost:4000`.
+  - Em dev, o frontend deve chamar `'/api'` (sem host/porta). Em produção, use `VITE_API_URL`.
+
+- Prisma `P1012 Environment variable not found: DATABASE_URL`
+  - Defina `DATABASE_URL="file:./src/prisma/dev.db"` em `backend/.env` (copie de `backend/.env.example`).
+  - Rode `cd backend && npm run prisma:push` para sincronizar o schema com o banco SQLite.
+
+- Erros de constraint/`P2022` ao reservar
+  - Indica divergência de schema no banco de desenvolvimento. Pare os servidores e rode `npm run prisma:push` no backend.
+
+- PIX stub vs Mercado Pago real
+  - Desenvolvimento: `PIX_STUB=true` e sem `MP_ACCESS_TOKEN` ativa stub; `POST /api/pagamento/pix` retorna `qr_code_base64`, `qr_code` e `id` simulados.
+  - Produção: `PIX_STUB=false` e `MP_ACCESS_TOKEN` definido.
+
+- Testar rapidamente o backend (PowerShell)
+  - Listar quartos:
+    - `Invoke-RestMethod http://localhost:4000/api/quartos`
+  - Checar disponibilidade:
+    - `Invoke-RestMethod "http://localhost:4000/api/disponibilidade?checkin=2025-11-20&checkout=2025-11-22&guests=2"`
+  - Criar reserva:
+    - `"$body = @{ quartoId = 1; nomeCliente = 'Teste'; email = 'teste@exemplo.com'; checkin = ([DateTime]::Parse('2025-11-20').ToString('o')); checkout = ([DateTime]::Parse('2025-11-22').ToString('o')); guests = 2 } | ConvertTo-Json; Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/reservas -ContentType 'application/json' -Body $body"`
+
+- Aviso de depreciação `util._extend`
+  - É apenas um aviso do Node.js; não afeta a execução. Pode ser ignorado em desenvolvimento.
+
+## ⚠️ Erros conhecidos (Prisma)
+
+- P1012: `Environment variable not found: DATABASE_URL`
+  - Causa: variável de ambiente ausente.
+  - Solução: defina `DATABASE_URL="file:./src/prisma/dev.db"` em `backend/.env` e rode `cd backend && npm run prisma:push`.
+
+- P2021: Tabela não existe
+  - Causa: banco inicial sem schema ou arquivo SQLite recém-criado.
+  - Solução: `cd backend && npm run prisma:push` para aplicar o schema no dev.
+
+- P2002: Restrição de unicidade falhou
+  - Causa: inserção duplicada em campo único.
+  - Soluções:
+    - Ajuste os dados de teste (evite duplicar campos únicos).
+    - Se precisar resetar o banco de dev: pare servidores, apague `backend/src/prisma/dev.db`, e rode `npm run prisma:push`.
+
+- P2003: Falha de chave estrangeira
+  - Causa: referência para registro inexistente (ex.: `quartoId` inválido).
+  - Solução: valide com `GET /api/quartos` e use um `quartoId` existente.
+
+- P2025: Registro não encontrado
+  - Causa: operação em registro inexistente (update/delete).
+  - Solução: confira IDs antes de operar; garanta que o registro foi criado.
+
+- Diagnóstico rápido
+  - Inspecione dados com `cd backend && npx prisma studio`.
+  - Confirme schema aplicado: `cd backend && npm run prisma:push`.
+  - Verifique logs no terminal do backend (mensagens de erro detalham o endpoint e payload).
+
+## 📦 Exemplos de payloads (rápidos)
+
+- Criar reserva (válido)
+  - Requisitos: datas em ISO (`.ToString('o')`), `quartoId` existente, `guests` não deve exceder a capacidade.
+  - Exemplo (PowerShell):
+    - ``
+      $body = @{ quartoId = 1; nomeCliente = 'Cliente Teste'; email = 'cliente@exemplo.com'; checkin = ([DateTime]::Parse('2025-11-20').ToString('o')); checkout = ([DateTime]::Parse('2025-11-22').ToString('o')); guests = 2 } | ConvertTo-Json
+      Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/reservas -ContentType 'application/json' -Body $body
+      ``
+
+- Criar reserva (inválido por capacidade)
+  - Excede capacidade do quarto; espera `400` e mensagem contendo "capacidade".
+  - Exemplo (PowerShell):
+    - ``
+      $body = @{ quartoId = 1; nomeCliente = 'Capacidade Teste'; email = 'capacidade@exemplo.com'; checkin = ([DateTime]::Parse('2025-11-20').ToString('o')); checkout = ([DateTime]::Parse('2025-11-22').ToString('o')); guests = 3 } | ConvertTo-Json
+      Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/reservas -ContentType 'application/json' -Body $body
+      ``
+
+- Pagamento PIX (stub ativo)
+  - Pré-condição: `PIX_STUB=true` no `backend/.env`.
+  - Request: `POST /api/pagamento/pix` com `{ email, total }`.
+  - Resposta esperada: `200` com `qr_code_base64`, `qr_code`, `id` simulados.
+  - Exemplo (PowerShell):
+    - ``
+      $body = @{ email = 'cliente@exemplo.com'; total = 350 } | ConvertTo-Json
+      Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/pagamento/pix -ContentType 'application/json' -Body $body
+      ``
+
+- Pagamento PIX (sem token e stub desativado)
+  - Pré-condição: `PIX_STUB=false` e sem `MP_ACCESS_TOKEN`.
+  - Resposta esperada: `503` com erro de indisponibilidade.
+  - Exemplo (PowerShell):
+    - ``
+      $body = @{ email = 'cliente@exemplo.com'; total = 100 } | ConvertTo-Json
+      Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/pagamento/pix -ContentType 'application/json' -Body $body
+      ``
+
+- Observações
+  - `total` é calculado pelo backend a partir das datas e preço do quarto; enviar no payload é opcional.
+  - Sempre valide `quartoId` com `GET /api/quartos` antes de criar reservas.
+
 ## ✅ Testes e qualidade
 
 - `npm test` no backend executa a suíte Jest configurada em `package.json`.
@@ -96,13 +361,103 @@ O pipeline em `.github/workflows/ci-cd.yml` (adicione-o se ainda não existir) d
 
 Todo push na branch `main` dispara o workflow.
 
+## 🚢 Guia de Produção
+
+Este guia consolida variáveis, comandos e etapas para publicar um MVP simples em produção usando Render (backend e microserviços) e Netlify (frontend).
+
+### Backend (Render)
+
+- Serviço: `motor-reservas-backend` (root `backend`)
+- Build:
+  - `npm install`
+  - `npx prisma generate --schema src/prisma/schema.prisma`
+  - `npx prisma db push --schema src/prisma/schema.prisma`
+  - `node src/prisma/seed.js` (idempotente: cria quartos se vazio)
+- Start:
+  - `node src/app.js`
+- Variáveis obrigatórias/recomendadas:
+  - `DATABASE_URL` — banco de produção (recomendado Postgres gerenciado; se SQLite, configure disco persistente no Render)
+  - `PIX_STUB` — `true` no MVP para simular PIX; para PIX real: `false` + `MP_ACCESS_TOKEN`
+  - `MP_ACCESS_TOKEN` — somente para PIX real
+  - `AVAILABILITY_URL` — URL do microserviço de disponibilidade (opcional)
+  - `CORS_ALLOWED_ORIGINS` — lista CSV de origens permitidas, ex.: `https://seusite.netlify.app,https://app.seudominio.com`
+
+### Frontend (Netlify)
+
+- Base: `frontend`
+- Build: `npm ci && npm run build`
+- Publish: `frontend/dist`
+- Variáveis:
+  - `VITE_API_URL=https://SEU_BACKEND_RENDER.onrender.com/api`
+
+### Microserviços (opcional)
+
+- Availability (`services/availability`)
+  - Build: `npm install && npm run prisma:generate && npm run prisma:migrate:deploy && npm run db:seed`
+  - Start: `node src/server.js`
+  - Variáveis: `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`
+
+- Booking (`services/booking`)
+  - Build: `npm install && npm run prisma:generate && npm run prisma:migrate:deploy && npm run db:seed`
+  - Start: `node src/server.js`
+  - Variáveis: `DATABASE_URL`, `AVAILABILITY_URL`, `MP_ACCESS_TOKEN` (se PIX real), `CORS_ALLOWED_ORIGINS`
+
+### CORS
+
+- Defina `CORS_ALLOWED_ORIGINS` como lista separada por vírgulas com os domínios do frontend (produção e, se necessário, staging):
+  - Ex.: `CORS_ALLOWED_ORIGINS=https://seusite.netlify.app,https://app.seudominio.com`
+- Se vazio (padrão em dev), CORS permanece aberto.
+
+### PIX
+
+- MVP simples: `PIX_STUB=true` (sem dependência de `MP_ACCESS_TOKEN`).
+- Produção real: `PIX_STUB=false` e configure `MP_ACCESS_TOKEN` (Mercado Pago).
+
+### Validação pós-deploy
+
+- Backend:
+  - `GET https://SEU_BACKEND/health` → `{ status: "ok" }`
+  - `GET https://SEU_BACKEND/api/quartos` → lista de quartos
+- Frontend:
+  - Aponte `VITE_API_URL` para o backend; valide fluxo de reserva até exibição do PIX (stub ou real).
+
+### Observações importantes
+
+- Banco de dados: em ambientes dinâmicos (Render), prefira Postgres gerenciado. Caso use SQLite, habilite volume persistente para não perder dados em restarts/realocações.
+- Seeds: scripts são idempotentes — podem rodar a cada deploy sem duplicar dados.
+- CI/CD: configure os secrets para deploy automático no GitHub Actions (Netlify e Render) se desejar pipeline de ponta a ponta.
+
+## ✅ Checklist de Validação (Endpoints)
+
+- [ ] `GET /health` retorna `{ status: "ok" }`.
+- [ ] `GET /api/quartos` retorna lista não vazia (seed aplicado).
+- [ ] `GET /api/disponibilidade?checkin=YYYY-MM-DD&checkout=YYYY-MM-DD&guests=N` retorna `availableRooms` coerente.
+- [ ] `POST /api/reservas` cria reserva, retorna `id` e `total`.
+- [ ] `POST /api/pagamento/pix` (stub) retorna `qr_code_base64`, `qr_code` e `id`.
+- [ ] `GET /api/reservas/:id` retorna a reserva criada.
+- [ ] `PUT /api/reservas/:id` atualiza período/guests sem conflito.
+- [ ] `DELETE /api/reservas/:id` marca como `cancelada`.
+- [ ] Cenários de erro: email inválido (400), datas inválidas (400), capacidade excedida (400), conflito (409), PIX indisponível sem token e sem stub (503).
+
+## 🧰 Coleções Postman/Insomnia
+
+- Coleção Postman: `docs/postman/MotorReservas.postman_collection.json`
+  - Importe no Postman (ou no Insomnia, importando como Postman Collection v2.1).
+  - Variáveis da coleção:
+    - `baseUrl` (padrão: `http://localhost:4000`)
+    - `apiBase` (padrão: `{{baseUrl}}/api`)
+  - Para produção, ajuste `baseUrl` para a URL do backend Render, por exemplo: `https://SEU_BACKEND_RENDER.onrender.com`.
+ - Coleção Insomnia: `docs/insomnia/MotorReservas-insomnia.json`
+   - Insomnia → Application Menu → Import/Export → Import Data → From File.
+   - Ajuste as variáveis no ambiente (baseUrl, apiBase, checkin, checkout, guests, reservaId) conforme necessário.
+
 ## ☁️ Deploy manual (opcional)
 
 ### Backend — Render
 
 - Tipo: **Web Service**
 - Diretório raiz: `backend`
-- Build command: `npm install && npx prisma generate`
+- Build command: `npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma db push --schema src/prisma/schema.prisma && node src/prisma/seed.js`
 - Start command: `node src/app.js`
 
 ### Frontend — Netlify
@@ -115,6 +470,7 @@ Todo push na branch `main` dispara o workflow.
 
 - [PRD](docs/PRD.md)
 - [Arquitetura DDD](docs/DDD-architecture.md)
+- [Guia de QA](docs/QA-Guide.md)
 - Crie outros guias (ex.: visão de dados, convenções de código) conforme o projeto evoluir.
 
 ## 🤝 Contribuição

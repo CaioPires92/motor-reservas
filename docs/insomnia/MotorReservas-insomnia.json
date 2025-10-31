@@ -1,0 +1,152 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-10-31T00:00:00.000Z",
+  "__export_source": "codex-cli:insomnia-export",
+  "resources": [
+    {
+      "_id": "wrk_motor_reservas",
+      "_type": "workspace",
+      "name": "Motor Reservas API",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_motor_base",
+      "_type": "environment",
+      "parentId": "wrk_motor_reservas",
+      "name": "Base Environment",
+      "data": {
+        "baseUrl": "http://localhost:4000",
+        "apiBase": "{{ _.baseUrl }}/api",
+        "checkin": "2025-11-20",
+        "checkout": "2025-11-22",
+        "guests": 2,
+        "reservaId": 1
+      },
+      "color": null,
+      "isPrivate": false
+    },
+    {
+      "_id": "fld_api_group",
+      "_type": "request_group",
+      "parentId": "wrk_motor_reservas",
+      "name": "API",
+      "environment": {},
+      "environmentPropertyOrder": null
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Health",
+      "description": "Response (200):\n\n```json\n{\n  \"status\": \"ok\",\n  \"pixStub\": true,\n  \"mercadoPago\": false,\n  \"availabilityConfigured\": false\n}\n```\n\nErros:\n\n- 503 Serviço degradado\n```json\n{\n  \"status\": \"degraded\"\n}\n```",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/health",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_quartos",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Listar Quartos",
+      "description": "Response (200):\n\n```json\n[\n  {\n    \"id\": 1,\n    \"nome\": \"Suíte Master\",\n    \"descricao\": \"Quarto amplo com vista\",\n    \"precoNoite\": 300,\n    \"imagens\": null,\n    \"capacidade\": 2\n  },\n  {\n    \"id\": 2,\n    \"nome\": \"Deluxe\",\n    \"descricao\": \"Conforto superior\",\n    \"precoNoite\": 450,\n    \"imagens\": null,\n    \"capacidade\": 3\n  }\n]\n```",
+      "method": "GET",
+      "url": "{{ _.apiBase }}/quartos",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_disponibilidade",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Disponibilidade",
+      "description": "Response (200):\n\n```json\n{\n  \"availableRooms\": [\n    { \"id\": 1, \"nome\": \"Suíte Master\", \"descricao\": \"Quarto amplo com vista\", \"precoNoite\": 300, \"capacidade\": 2 }\n  ],\n  \"totalAvailable\": 1,\n  \"dateRange\": { \"checkin\": \"{{ _.checkin }}\", \"checkout\": \"{{ _.checkout }}\" }\n}\n```\n\nErros:\n\n- 400 Parâmetros obrigatórios ausentes\n```json\n{\n  \"error\": \"Parâmetros obrigatórios: checkin, checkout, guests\"\n}\n```",
+      "method": "GET",
+      "url": "{{ _.apiBase }}/disponibilidade?checkin={{ _.checkin }}&checkout={{ _.checkout }}&guests={{ _.guests }}",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_reserva_create",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Criar Reserva",
+      "description": "Response (200):\n\n```json\n{\n  \"id\": 1,\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"pendente\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}\n```\n\nErros:\n\n- 400 Email inválido\n```json\n{\n  \"error\": \"Email inválido\"\n}\n```\n- 409 Conflito de reserva\n```json\n{\n  \"error\": \"Quarto indisponível no período selecionado\"\n}\n```",
+      "method": "POST",
+      "url": "{{ _.apiBase }}/reservas",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2\n}"
+      }
+    },
+    {
+      "_id": "req_reserva_get",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Obter Reserva por ID",
+      "description": "Response (200):\n\n```json\n{\n  \"id\": {{ _.reservaId }},\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"pendente\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}\n```\n\nErros:\n\n- 404 Não encontrada\n```json\n{\n  \"error\": \"Reserva não encontrada\"\n}\n```",
+      "method": "GET",
+      "url": "{{ _.apiBase }}/reservas/{{ _.reservaId }}",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_reserva_put",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Atualizar Reserva",
+      "description": "Response (200):\n\n```json\n{\n  \"id\": {{ _.reservaId }},\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-21T00:00:00.000Z\",\n  \"checkout\": \"2025-11-23T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"pendente\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}\n```\n\nErros:\n\n- 409 Conflito\n```json\n{\n  \"error\": \"Conflito de reserva no período solicitado\"\n}\n```",
+      "method": "PUT",
+      "url": "{{ _.apiBase }}/reservas/{{ _.reservaId }}",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"checkin\": \"2025-11-21T00:00:00.000Z\",\n  \"checkout\": \"2025-11-23T00:00:00.000Z\",\n  \"guests\": 2\n}"
+      }
+    },
+    {
+      "_id": "req_reserva_delete",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Cancelar Reserva",
+      "description": "Response (200):\n\n```json\n{\n  \"id\": {{ _.reservaId }},\n  \"quartoId\": 1,\n  \"nomeCliente\": \"Cliente Teste\",\n  \"email\": \"cliente@exemplo.com\",\n  \"checkin\": \"2025-11-20T00:00:00.000Z\",\n  \"checkout\": \"2025-11-22T00:00:00.000Z\",\n  \"guests\": 2,\n  \"total\": 600,\n  \"status\": \"cancelada\",\n  \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n}\n```\n\nErros:\n\n- 404 Não encontrada\n```json\n{\n  \"error\": \"Reserva não encontrada\"\n}\n```",
+      "method": "DELETE",
+      "url": "{{ _.apiBase }}/reservas/{{ _.reservaId }}",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_pix",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Pagamento PIX",
+      "description": "Response (200, stub):\n\n```json\n{\n  \"qr_code_base64\": \"iVBORw0KGgoAAAANSUhEUgAA...\",\n  \"qr_code\": \"000201010212...\",\n  \"id\": \"stub-1698751234567\"\n}\n```\n\nErros:\n\n- 400 Email/total inválido\n```json\n{\n  \"error\": \"Email ou total inválido\"\n}\n```\n- 503 Sem token (PIX desabilitado)\n```json\n{\n  \"error\": \"Pagamento PIX indisponível: token não configurado\"\n}\n```",
+      "method": "POST",
+      "url": "{{ _.apiBase }}/pagamento/pix",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"cliente@exemplo.com\",\n  \"total\": 350\n}"
+      }
+    },
+    {
+      "_id": "req_reservas_list",
+      "_type": "request",
+      "parentId": "fld_api_group",
+      "name": "Listar Reservas (opcional)",
+      "description": "Response (200):\n\n```json\n[\n  {\n    \"id\": 1,\n    \"quartoId\": 1,\n    \"nomeCliente\": \"Cliente Teste\",\n    \"email\": \"cliente@exemplo.com\",\n    \"checkin\": \"2025-11-20T00:00:00.000Z\",\n    \"checkout\": \"2025-11-22T00:00:00.000Z\",\n    \"guests\": 2,\n    \"total\": 600,\n    \"status\": \"pendente\",\n    \"criadoEm\": \"2025-10-31T12:00:00.000Z\"\n  }\n]\n```\n\nErros:\n\n- 400 Período incompleto\n```json\n{\n  \"error\": \"Parâmetros de período requerem inicio e fim\"\n}\n```",
+      "method": "GET",
+      "url": "{{ _.apiBase }}/reservas?quartoId=1&inicio={{ _.checkin }}&fim={{ _.checkout }}",
+      "headers": [],
+      "body": {}
+    }
+  ]
+}

@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
-import mercadopago from "mercadopago";
+import { MercadoPagoConfig, Payment } from "mercadopago";
+import rateLimit from "express-rate-limit";
 import QRCode from "qrcode";
 import { PrismaClient } from "@prisma/client";
 import path from "path";
@@ -24,14 +26,54 @@ export const prisma = new PrismaClient({
 const MP_TOKEN = process.env.MP_ACCESS_TOKEN;
 const PIX_STUB = process.env.PIX_STUB === "true";
 const AVAILABILITY_URL = process.env.AVAILABILITY_URL;
+let mpPayment = null;
 if (MP_TOKEN) {
-  mercadopago.configure({ access_token: MP_TOKEN });
+  try {
+    const mpClient = new MercadoPagoConfig({ accessToken: MP_TOKEN });
+    mpPayment = new Payment(mpClient);
+  } catch (e) {
+    console.warn("[WARN] Falha ao configurar Mercado Pago SDK:", e?.message || e);
+  }
 } else if (!PIX_STUB) {
   console.warn("[WARN] MP_ACCESS_TOKEN ausente; endpoints de pagamento PIX indisponíveis.");
 }
 
-app.use(cors());
+// Segurança básica e CORS por ambiente
+app.use(helmet());
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const corsOptions = allowedOrigins.length > 0 ? { origin: allowedOrigins } : {};
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Rate limiting básico para endpoints críticos
+const reservasLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 10,
+  message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
+});
+const pixLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
+});
+
+// Health check simples com verificação do banco e flags de serviços
+app.get("/health", async (req, res) => {
+  try {
+    await prisma.quarto.count();
+    return res.json({
+      status: "ok",
+      pixStub: PIX_STUB,
+      mercadoPago: Boolean(MP_TOKEN),
+      availabilityConfigured: Boolean(AVAILABILITY_URL),
+    });
+  } catch (e) {
+    return res.status(503).json({ status: "degraded" });
+  }
+});
 
 // Seed de desenvolvimento: popula quartos quando o banco está vazio
 async function seedDevRooms() {
@@ -65,7 +107,7 @@ app.get("/api/quartos", async (req, res) => {
 });
 
 // --- Reservas ---
-app.post("/api/reservas", async (req, res) => {
+app.post("/api/reservas", reservasLimiter, async (req, res) => {
   try {
     const { quartoId, nomeCliente, email, checkin, checkout } = req.body;
     const guestsRaw = req.body.guests ?? 1;
@@ -76,6 +118,12 @@ app.post("/api/reservas", async (req, res) => {
         error:
           "Campos obrigatórios: quartoId, nomeCliente, email, checkin, checkout",
       });
+    }
+
+    // Email válido
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(email))) {
+      return res.status(400).json({ error: "Email inválido" });
     }
 
     // Datas válidas e normalizadas
@@ -278,11 +326,15 @@ app.delete("/api/reservas/:id", async (req, res) => {
 });
 
 // --- Pagamento PIX ---
-app.post("/api/pagamento/pix", async (req, res) => {
+app.post("/api/pagamento/pix", pixLimiter, async (req, res) => {
   try {
     const { email, total } = req.body;
 
     if (PIX_STUB) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(String(email)) || Number(total) <= 0) {
+        return res.status(400).json({ error: "Email ou total inválido" });
+      }
       const code = `PIX-STUB|email:${email}|total:${Number(total).toFixed(2)}|ts:${Date.now()}`;
       const qrDataUrl = await QRCode.toDataURL(code);
       return res.json({
@@ -298,17 +350,24 @@ app.post("/api/pagamento/pix", async (req, res) => {
         .json({ error: "Pagamento PIX indisponível: token não configurado" });
     }
 
-    const payment = await mercadopago.payment.create({
-      transaction_amount: Number(total),
-      description: "Reserva de hotel",
-      payment_method_id: "pix",
-      payer: { email },
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(email)) || Number(total) <= 0) {
+      return res.status(400).json({ error: "Email ou total inválido" });
+    }
+
+    const payment = await mpPayment.create({
+      body: {
+        transaction_amount: Number(total),
+        description: "Reserva de hotel",
+        payment_method_id: "pix",
+        payer: { email },
+      }
     });
+    const body = payment?.body ?? payment;
     res.json({
-      qr_code_base64:
-        payment.body.point_of_interaction.transaction_data.qr_code_base64,
-      qr_code: payment.body.point_of_interaction.transaction_data.qr_code,
-      id: payment.body.id,
+      qr_code_base64: body?.point_of_interaction?.transaction_data?.qr_code_base64,
+      qr_code: body?.point_of_interaction?.transaction_data?.qr_code,
+      id: body?.id,
     });
   } catch (e) {
     console.error(e);
@@ -318,8 +377,8 @@ app.post("/api/pagamento/pix", async (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () =>
-    console.log(`Servidor rodando em http://localhost:${PORT}`),
+  app.listen(PORT, "0.0.0.0", () =>
+    console.log(`Servidor rodando em http://0.0.0.0:${PORT}`),
   );
 }
 

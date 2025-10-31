@@ -1,0 +1,148 @@
+{
+  "stats": {
+    "suites": 1,
+    "tests": 3,
+    "passes": 3,
+    "pending": 0,
+    "failures": 0,
+    "start": "2025-10-31T20:45:38.173Z",
+    "end": "2025-10-31T20:45:45.109Z",
+    "duration": 6936,
+    "testsRegistered": 3,
+    "passPercent": 100,
+    "pendingPercent": 0,
+    "other": 0,
+    "hasOther": false,
+    "skipped": 0,
+    "hasSkipped": false
+  },
+  "results": [
+    {
+      "uuid": "53ec2a38-9fcb-432a-bd82-b8067d682001",
+      "title": "",
+      "fullFile": "cypress\\e2e\\fluxo-reserva-negativo.cy.js",
+      "file": "cypress\\e2e\\fluxo-reserva-negativo.cy.js",
+      "beforeHooks": [],
+      "afterHooks": [],
+      "tests": [],
+      "suites": [
+        {
+          "uuid": "cc10eb48-7087-4b41-a069-b9bd996182d3",
+          "title": "Fluxo de reserva - cenários negativos",
+          "fullFile": "",
+          "file": "",
+          "beforeHooks": [],
+          "afterHooks": [],
+          "tests": [
+            {
+              "title": "Exibe erro quando quarto selecionado não está disponível",
+              "fullTitle": "Fluxo de reserva - cenários negativos Exibe erro quando quarto selecionado não está disponível",
+              "timedOut": null,
+              "duration": 2787,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "// Seleciona primeiro quarto\ncy.get('[data-cy=\"room-card\"]').should('have.length', 2);\ncy.get('[data-cy=\"select-room\"]').first().click();\n// Preenche dados\ncy.get('[data-cy=\"input-name\"]').type('Cliente Teste');\ncy.get('[data-cy=\"input-email\"]').type('cliente@teste.com');\ncy.get('[data-cy=\"input-checkin\"]').type('2024-12-01');\ncy.get('[data-cy=\"input-checkout\"]').type('2024-12-03');\ncy.get('[data-cy=\"input-guests\"]').clear().type('2');\n// Nenhuma disponibilidade\ncy.intercept('GET', '/api/disponibilidade*', {\n  statusCode: 200,\n  body: {\n    availableRooms: []\n  }\n}).as('getDisp');\ncy.get('[data-cy=\"check-availability\"]').click();\ncy.wait('@getDisp');\n// Deve exibir erro e desabilitar reservar\ncy.get('[data-cy=\"status-message\"]').should('contain', 'não está disponível');\ncy.get('[data-cy=\"reserve\"]').should('be.disabled');",
+              "err": {},
+              "uuid": "67c68479-41b3-4f43-a809-d5c97e92611a",
+              "parentUUID": "cc10eb48-7087-4b41-a069-b9bd996182d3",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Exibe erro quando criação da reserva falha",
+              "fullTitle": "Fluxo de reserva - cenários negativos Exibe erro quando criação da reserva falha",
+              "timedOut": null,
+              "duration": 2054,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "// Seleciona primeiro quarto\ncy.get('[data-cy=\"select-room\"]').first().click();\n// Preenche dados\ncy.get('[data-cy=\"input-name\"]').type('Cliente Teste');\ncy.get('[data-cy=\"input-email\"]').type('cliente@teste.com');\ncy.get('[data-cy=\"input-checkin\"]').type('2024-12-01');\ncy.get('[data-cy=\"input-checkout\"]').type('2024-12-03');\ncy.get('[data-cy=\"input-guests\"]').clear().type('2');\n// Disponibilidade positiva para o quarto selecionado\ncy.intercept('GET', '/api/disponibilidade*', {\n  statusCode: 200,\n  body: {\n    availableRooms: [{\n      id: 101\n    }]\n  }\n}).as('getDispOk');\ncy.get('[data-cy=\"check-availability\"]').click();\ncy.wait('@getDispOk');\n// Reserva falha\ncy.intercept('POST', '/api/reservas', {\n  statusCode: 500,\n  body: {\n    error: 'Falha ao criar reserva'\n  }\n}).as('postReservaFail');\ncy.get('[data-cy=\"reserve\"]').click();\ncy.wait('@postReservaFail');\ncy.get('[data-cy=\"status-message\"]').should('contain', 'Falha ao criar reserva');",
+              "err": {},
+              "uuid": "54a45308-575d-466d-bb1e-1be0df73e863",
+              "parentUUID": "cc10eb48-7087-4b41-a069-b9bd996182d3",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Exibe erro quando geração de PIX falha",
+              "fullTitle": "Fluxo de reserva - cenários negativos Exibe erro quando geração de PIX falha",
+              "timedOut": null,
+              "duration": 1992,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "// Seleciona primeiro quarto\ncy.get('[data-cy=\"select-room\"]').first().click();\n// Preenche dados\ncy.get('[data-cy=\"input-name\"]').type('Cliente Teste');\ncy.get('[data-cy=\"input-email\"]').type('cliente@teste.com');\ncy.get('[data-cy=\"input-checkin\"]').type('2024-12-05');\ncy.get('[data-cy=\"input-checkout\"]').type('2024-12-07');\ncy.get('[data-cy=\"input-guests\"]').clear().type('2');\n// Disponibilidade positiva para o quarto selecionado\ncy.intercept('GET', '/api/disponibilidade*', {\n  statusCode: 200,\n  body: {\n    availableRooms: [{\n      id: 101\n    }]\n  }\n}).as('getDispOk2');\ncy.get('[data-cy=\"check-availability\"]').click();\ncy.wait('@getDispOk2');\n// Reserva OK\ncy.intercept('POST', '/api/reservas', {\n  statusCode: 200,\n  body: {\n    id: 999,\n    total: 350\n  }\n}).as('postReservaOk');\n// PIX falha\ncy.intercept('POST', '/api/pagamento/pix', {\n  statusCode: 500,\n  body: {\n    error: 'Falha ao gerar PIX'\n  }\n}).as('postPixFail');\ncy.get('[data-cy=\"reserve\"]').click();\ncy.wait('@postReservaOk');\ncy.wait('@postPixFail');\ncy.get('[data-cy=\"status-message\"]').should('contain', 'Falha ao gerar PIX');",
+              "err": {},
+              "uuid": "68dd83d4-ae0a-4dce-a571-6de138e10427",
+              "parentUUID": "cc10eb48-7087-4b41-a069-b9bd996182d3",
+              "isHook": false,
+              "skipped": false
+            }
+          ],
+          "suites": [],
+          "passes": [
+            "67c68479-41b3-4f43-a809-d5c97e92611a",
+            "54a45308-575d-466d-bb1e-1be0df73e863",
+            "68dd83d4-ae0a-4dce-a571-6de138e10427"
+          ],
+          "failures": [],
+          "pending": [],
+          "skipped": [],
+          "duration": 6833,
+          "root": false,
+          "rootEmpty": false,
+          "_timeout": 2000
+        }
+      ],
+      "passes": [],
+      "failures": [],
+      "pending": [],
+      "skipped": [],
+      "duration": 0,
+      "root": true,
+      "rootEmpty": true,
+      "_timeout": 2000
+    }
+  ],
+  "meta": {
+    "mocha": {
+      "version": "7.0.1"
+    },
+    "mochawesome": {
+      "options": {
+        "quiet": false,
+        "reportFilename": "mochawesome",
+        "saveHtml": false,
+        "saveJson": true,
+        "consoleReporter": "spec",
+        "useInlineDiffs": false,
+        "code": true
+      },
+      "version": "7.1.4"
+    },
+    "marge": {
+      "options": {
+        "reportDir": "cypress\\reports\\.jsons",
+        "html": false,
+        "json": true,
+        "overwrite": false,
+        "charts": true,
+        "reportPageTitle": "E2E Report",
+        "embeddedScreenshots": true,
+        "inlineAssets": true,
+        "saveAllAttempts": false
+      },
+      "version": "6.3.0"
+    }
+  }
+}

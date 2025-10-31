@@ -27,7 +27,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: npm install
+        run: npm ci
 
       - name: Generate Prisma client
         working-directory: backend
@@ -35,11 +35,20 @@ jobs:
 
       - name: Run backend tests
         working-directory: backend
-        run: npm test -- --watch=false
+        run: npm test -- --coverage --watch=false
+
+      - name: Upload backend coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-coverage
+          path: backend/coverage
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Run frontend E2E tests (Cypress)
         working-directory: frontend
@@ -67,19 +76,37 @@ jobs:
 
       - name: Install availability service dependencies
         working-directory: services/availability
-        run: npm install
+        run: npm ci
 
       - name: Run availability service tests
         working-directory: services/availability
-        run: npm test -- --watch=false
+        run: npm test -- --coverage --watch=false
+
+      - name: Upload availability coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: availability-coverage
+          path: services/availability/coverage
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Install booking service dependencies
         working-directory: services/booking
-        run: npm install
+        run: npm ci
 
       - name: Run booking service tests
         working-directory: services/booking
-        run: npm test -- --watch=false
+        run: npm test -- --coverage --watch=false
+
+      - name: Upload booking coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: booking-coverage
+          path: services/booking/coverage
+          if-no-files-found: warn
+          retention-days: 7
 
   deploy:
     name: Deploy

@@ -1,22 +1,57 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import fetch from "node-fetch";
-import mercadopago from "mercadopago";
+import { MercadoPagoConfig, Payment } from "mercadopago";
+import rateLimit from "express-rate-limit";
 
 dotenv.config();
 export const app = express();
 export const prisma = new PrismaClient();
 const MP_TOKEN = process.env.MP_ACCESS_TOKEN;
+let mpPayment = null;
 if (MP_TOKEN) {
-  mercadopago.configure({ access_token: MP_TOKEN });
+  try {
+    const mpClient = new MercadoPagoConfig({ accessToken: MP_TOKEN });
+    mpPayment = new Payment(mpClient);
+  } catch (e) {
+    console.warn("[WARN] Falha ao configurar Mercado Pago SDK:", e?.message || e);
+  }
 } else {
   console.warn("[WARN] MP_ACCESS_TOKEN ausente; endpoints de pagamento PIX indisponíveis.");
 }
 
-app.use(cors());
+// Segurança básica
+app.use(helmet());
+
+// Configuração de CORS por ambiente
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(o => o.trim())
+  .filter(Boolean);
+const corsOptions = {
+  origin: allowedOrigins.length > 0 ? allowedOrigins : "*",
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Rate limiting para endpoints críticos
+const RATE_LIMIT_RESERVAS_WINDOW_MS = Number(process.env.RATE_LIMIT_RESERVAS_WINDOW_MS || 60 * 1000);
+const RATE_LIMIT_RESERVAS_MAX = Number(process.env.RATE_LIMIT_RESERVAS_MAX || 10);
+const RATE_LIMIT_PIX_WINDOW_MS = Number(process.env.RATE_LIMIT_PIX_WINDOW_MS || 60 * 1000);
+const RATE_LIMIT_PIX_MAX = Number(process.env.RATE_LIMIT_PIX_MAX || 10);
+const reservasLimiter = rateLimit({
+  windowMs: RATE_LIMIT_RESERVAS_WINDOW_MS,
+  max: RATE_LIMIT_RESERVAS_MAX,
+  message: { error: "Limite de requisições excedido. Tente novamente em 1 minuto." }
+});
+const pixLimiter = rateLimit({
+  windowMs: RATE_LIMIT_PIX_WINDOW_MS,
+  max: RATE_LIMIT_PIX_MAX,
+  message: { error: "Limite de requisições excedido. Tente novamente em 1 minuto." }
+});
 
 const AVAILABILITY_URL = process.env.AVAILABILITY_URL || "http://localhost:4100";
 
@@ -36,11 +71,16 @@ app.get("/quartos", async (req, res) => {
 });
 
 // Create reservation
-app.post("/reservas", async (req, res) => {
+app.post("/reservas", reservasLimiter, async (req, res) => {
   try {
     const { roomId, checkin, checkout, guests = 1, nomeCliente, email } = req.body;
     if (!roomId || !checkin || !checkout || !nomeCliente || !email) {
       return res.status(400).json({ error: "Campos obrigatórios: roomId, checkin, checkout, nomeCliente, email" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Email inválido" });
     }
 
     const start = new Date(checkin);
@@ -111,22 +151,32 @@ app.post("/reservas", async (req, res) => {
 });
 
 // PIX payment
-app.post("/pagamento/pix", async (req, res) => {
+app.post("/pagamento/pix", pixLimiter, async (req, res) => {
   try {
     if (!MP_TOKEN) {
       return res.status(503).json({ error: "Pagamento PIX indisponível: token não configurado" });
     }
     const { email, total } = req.body;
-    const payment = await mercadopago.payment.create({
-      transaction_amount: Number(total),
-      description: "Reserva de hotel",
-      payment_method_id: "pix",
-      payer: { email }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ error: "Email inválido" });
+    }
+    if (!total || Number(total) <= 0) {
+      return res.status(400).json({ error: "Total deve ser maior que zero" });
+    }
+    const payment = await mpPayment.create({
+      body: {
+        transaction_amount: Number(total),
+        description: "Reserva de hotel",
+        payment_method_id: "pix",
+        payer: { email }
+      }
     });
+    const body = payment?.body ?? payment;
     return res.json({
-      qr_code_base64: payment.body.point_of_interaction.transaction_data.qr_code_base64,
-      qr_code: payment.body.point_of_interaction.transaction_data.qr_code,
-      id: payment.body.id
+      qr_code_base64: body?.point_of_interaction?.transaction_data?.qr_code_base64,
+      qr_code: body?.point_of_interaction?.transaction_data?.qr_code,
+      id: body?.id
     });
   } catch (e) {
     console.error(e);
