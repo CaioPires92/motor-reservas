@@ -1,0 +1,16 @@
+[
+  {
+    "id": 101,
+    "nome": "Quarto Standard",
+    "descricao": "Confortável e prático",
+    "precoNoite": 175,
+    "capacidade": 2
+  },
+  {
+    "id": 202,
+    "nome": "Quarto Luxo",
+    "descricao": "Vista para o mar",
+    "precoNoite": 350,
+    "capacidade": 3
+  }
+]
