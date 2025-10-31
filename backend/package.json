@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "node src/app.js",
-        "test": "jest --detectOpenHandles --forceExit",
+        "test": "cross-env DATABASE_URL=\"file:./test.db\" prisma db push --schema src/prisma/schema.prisma && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --detectOpenHandles --forceExit",
         "prisma:generate": "prisma generate --schema src/prisma/schema.prisma",
         "prisma:push": "prisma db push --schema src/prisma/schema.prisma"
     },
@@ -19,6 +19,7 @@
     "devDependencies": {
         "jest": "^29.0.0",
         "supertest": "^6.3.3",
-        "prisma": "^5.22.0"
+        "prisma": "^5.22.0",
+        "cross-env": "^7.0.3"
     }
 }
