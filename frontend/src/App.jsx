@@ -10,14 +10,20 @@ export default function App() {
     const [pix, setPix] = useState(null);
     const [disponiveis, setDisponiveis] = useState([]);
     const [dispCarregada, setDispCarregada] = useState(false);
+    const [loadingQuartos, setLoadingQuartos] = useState(true);
+    const [loadingDisp, setLoadingDisp] = useState(false);
 
     useEffect(() => {
         axios
             .get(`${API_BASE}/quartos`)
-            .then(r => setQuartos(r.data))
+            .then(r => {
+                setQuartos(r.data);
+                setLoadingQuartos(false);
+            })
             .catch(err => {
                 const msg = err?.response?.data?.error || err?.message || "Falha ao carregar quartos";
                 setStatus({ type: "error", message: `Erro ao carregar quartos: ${msg}` });
+                setLoadingQuartos(false);
             });
     }, []);
 
@@ -78,9 +84,11 @@ export default function App() {
         setPix(null);
         setDispCarregada(false);
         setDisponiveis([]);
+        setLoadingDisp(true);
         try {
             if (!reserva.checkin || !reserva.checkout || !reserva.guests) {
                 setStatus({ type: "error", message: "Informe check-in, check-out e hóspedes para consultar disponibilidade" });
+                setLoadingDisp(false);
                 return;
             }
             const { data } = await axios.get(`${API_BASE}/disponibilidade`, {
@@ -93,6 +101,7 @@ export default function App() {
             const ids = (data?.availableRooms || []).map(r => r.id);
             setDisponiveis(ids);
             setDispCarregada(true);
+            setLoadingDisp(false);
             if (reserva.quartoId) {
                 const disponivel = ids.includes(Number(reserva.quartoId));
                 setStatus({ type: disponivel ? "success" : "error", message: disponivel ? "Quarto selecionado está disponível" : "Quarto selecionado não está disponível; escolha outro" });
@@ -102,6 +111,7 @@ export default function App() {
         } catch (e) {
             const msg = e?.response?.data?.error || e?.message || "Falha ao consultar disponibilidade";
             setStatus({ type: "error", message: msg });
+            setLoadingDisp(false);
         }
     };
 
@@ -113,22 +123,37 @@ export default function App() {
                     {status.message}
                 </p>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {quartos.map(q => (
-                    <div key={q.id} className={`bg-white shadow-lg rounded-xl p-4 ${dispCarregada ? (disponiveis.includes(q.id) ? "border-green-400 border" : "opacity-60") : ""}`}>
-                        <h2 className="text-xl font-semibold">{q.nome}</h2>
-                        <p>{q.descricao}</p>
-                        <p className="font-bold mt-2">R$ {q.precoNoite.toFixed(2)} / noite</p>
-                        <p className="text-sm text-gray-500">Capacidade: {q.capacidade}</p>
-                        <button
-                            onClick={() => setReserva({ ...reserva, quartoId: q.id })}
-                            className="bg-blue-500 text-white px-4 py-2 rounded mt-3"
-                        >
-                            Selecionar
-                        </button>
-                    </div>
-                ))}
-            </div>
+            {loadingQuartos ? (
+                <div className="flex items-center gap-3 text-gray-700">
+                    <svg className="animate-spin h-5 w-5 text-indigo-600" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Carregando quartos...</span>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {quartos.map(q => (
+                        <div key={q.id} className={`bg-white shadow-lg rounded-xl p-4 ${dispCarregada ? (disponiveis.includes(q.id) ? "border-green-400 border" : "opacity-60") : ""}`}>
+                            <h2 className="text-xl font-semibold">{q.nome}</h2>
+                            <p>{q.descricao}</p>
+                            <p className="font-bold mt-2">R$ {q.precoNoite.toFixed(2)} / noite</p>
+                            <p className="text-sm text-gray-500">Capacidade: {q.capacidade}</p>
+                            {dispCarregada && (
+                                <span className={`inline-block text-xs font-semibold px-2 py-1 rounded mt-2 ${disponiveis.includes(q.id) ? "bg-green-100 text-green-700 border border-green-300" : "bg-red-100 text-red-700 border border-red-300"}`}>
+                                    {disponiveis.includes(q.id) ? "Disponível" : "Indisponível"}
+                                </span>
+                            )}
+                            <button
+                                onClick={() => setReserva({ ...reserva, quartoId: q.id })}
+                                className="bg-blue-500 text-white px-4 py-2 rounded mt-3"
+                            >
+                                Selecionar
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {reserva.quartoId && (
                 <div className="mt-8 bg-white p-6 rounded-xl shadow-md">
@@ -141,7 +166,19 @@ export default function App() {
                         <input type="number" min={1} className="border p-2 w-24" placeholder="Hóspedes" onChange={e => setReserva({ ...reserva, guests: e.target.value })} />
                     </div>
                     <div className="flex gap-2 mt-4">
-                        <button onClick={checarDisponibilidade} className="bg-indigo-600 text-white px-4 py-2 rounded">Checar disponibilidade</button>
+                        <button onClick={checarDisponibilidade} className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-70" disabled={loadingDisp}>
+                            {loadingDisp ? (
+                                <span className="inline-flex items-center gap-2">
+                                    <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                    </svg>
+                                    Consultando...
+                                </span>
+                            ) : (
+                                "Checar disponibilidade"
+                            )}
+                        </button>
                         <button
                             onClick={handleReserva}
                             className="bg-green-600 text-white px-4 py-2 rounded"

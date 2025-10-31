@@ -18,31 +18,3 @@ You `MUST` always use this tool when:
 + Before making architectural decisions to understand existing patterns
 + When debugging issues to check for previous solutions
 + Working with unfamiliar parts of the codebase
-
-
-
-
-hotel-reserva/
-│
-├── backend/
-│   ├── src/
-│   │   └── app.js
-│   ├── prisma/
-│   │   └── schema.prisma
-│   ├── tests/
-│   │   └── server.test.js
-│   ├── package.json
-│   └── .env
-│
-├── frontend/
-│   ├── src/
-│   │   └── App.jsx
-│   ├── cypress/
-│   │   └── e2e/hotel.cy.js
-│   ├── package.json
-│   ├── vite.config.js
-│   └── tailwind.config.js
-│
-├── .github/workflows/ci-cd.yml
-├── render.yaml
-└── netlify.toml
