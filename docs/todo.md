@@ -30,7 +30,8 @@ Atualize marcando `[x]` ao concluir. Itens concluídos nesta sessão já estão 
 - [x] Documentar fluxo Dev Rápido em `.trae/rodarlocal.md`.
 - [x] Reiniciar dev server e validar preview.
 - [x] Commit e push para `origin/main`.
-- [ ] Testes E2E com Cypress para disponibilidade e reserva.
+- [x] Testes E2E com Cypress para disponibilidade e reserva.
+- [x] Integração dos E2E no CI (GitHub Actions).
 - [ ] Logger central e captura de erros (Sentry).
 - [ ] Health-check endpoints e monitoramento básico.
 - [ ] Alinhar versão Node no CI/CD e ativar cache de build.
@@ -52,4 +53,3 @@ Atualize marcando `[x]` ao concluir. Itens concluídos nesta sessão já estão 
 ## Roadmap
 - [ ] Planejamento detalhado por trimestre com épicos e milestones.
 - [ ] Critérios de aceitação para features núcleo.
-

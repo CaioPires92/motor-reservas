@@ -35,6 +35,10 @@ jobs:
         working-directory: frontend
         run: npm install
 
+      - name: Run frontend E2E tests (Cypress)
+        working-directory: frontend
+        run: npm run test:e2e:dev
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build -- --mode=production
