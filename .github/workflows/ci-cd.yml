@@ -43,6 +43,8 @@ jobs:
 
       - name: Run frontend E2E tests (Cypress)
         working-directory: frontend
+        env:
+          CYPRESS_baseUrl: http://localhost:5173
         run: npm run test:e2e:dev
 
       - name: Build frontend

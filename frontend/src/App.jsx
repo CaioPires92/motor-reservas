@@ -134,7 +134,7 @@ export default function App() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {quartos.map(q => (
-                        <div key={q.id} className={`bg-white shadow-lg rounded-xl p-4 ${dispCarregada ? (disponiveis.includes(q.id) ? "border-green-400 border" : "opacity-60") : ""}`}>
+                        <div key={q.id} data-cy="room-card" className={`bg-white shadow-lg rounded-xl p-4 ${dispCarregada ? (disponiveis.includes(q.id) ? "border-green-400 border" : "opacity-60") : ""}`}>
                             <h2 className="text-xl font-semibold">{q.nome}</h2>
                             <p>{q.descricao}</p>
                             <p className="font-bold mt-2">R$ {q.precoNoite.toFixed(2)} / noite</p>
@@ -147,6 +147,7 @@ export default function App() {
                             <button
                                 onClick={() => setReserva({ ...reserva, quartoId: q.id })}
                                 className="bg-blue-500 text-white px-4 py-2 rounded mt-3"
+                                data-cy="select-room"
                             >
                                 Selecionar
                             </button>
@@ -159,14 +160,14 @@ export default function App() {
                 <div className="mt-8 bg-white p-6 rounded-xl shadow-md">
                     <h2 className="text-2xl font-semibold mb-2">Finalizar Reserva</h2>
                     <div className="flex flex-wrap gap-2">
-                        <input type="text" placeholder="Nome" className="border p-2" onChange={e => setReserva({ ...reserva, nomeCliente: e.target.value })} />
-                        <input type="email" placeholder="Email" className="border p-2" onChange={e => setReserva({ ...reserva, email: e.target.value })} />
-                        <input type="date" className="border p-2" onChange={e => setReserva({ ...reserva, checkin: e.target.value })} />
-                        <input type="date" className="border p-2" onChange={e => setReserva({ ...reserva, checkout: e.target.value })} />
-                        <input type="number" min={1} className="border p-2 w-24" placeholder="Hóspedes" onChange={e => setReserva({ ...reserva, guests: e.target.value })} />
+                        <input type="text" placeholder="Nome" className="border p-2" data-cy="input-name" onChange={e => setReserva({ ...reserva, nomeCliente: e.target.value })} />
+                        <input type="email" placeholder="Email" className="border p-2" data-cy="input-email" onChange={e => setReserva({ ...reserva, email: e.target.value })} />
+                        <input type="date" className="border p-2" data-cy="input-checkin" onChange={e => setReserva({ ...reserva, checkin: e.target.value })} />
+                        <input type="date" className="border p-2" data-cy="input-checkout" onChange={e => setReserva({ ...reserva, checkout: e.target.value })} />
+                        <input type="number" min={1} className="border p-2 w-24" placeholder="Hóspedes" data-cy="input-guests" onChange={e => setReserva({ ...reserva, guests: e.target.value })} />
                     </div>
                     <div className="flex gap-2 mt-4">
-                        <button onClick={checarDisponibilidade} className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-70" disabled={loadingDisp}>
+                        <button onClick={checarDisponibilidade} className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-70" disabled={loadingDisp} data-cy="check-availability">
                             {loadingDisp ? (
                                 <span className="inline-flex items-center gap-2">
                                     <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
@@ -183,20 +184,22 @@ export default function App() {
                             onClick={handleReserva}
                             className="bg-green-600 text-white px-4 py-2 rounded"
                             disabled={dispCarregada && !disponiveis.includes(Number(reserva.quartoId))}
+                            data-cy="reserve"
                         >
                             Reservar
                         </button>
                     </div>
-                    {status.type === "success" && <p className="text-green-700 mt-3">{status.message}</p>}
-                    {status.type === "error" && <p className="text-red-700 mt-3">{status.message}</p>}
+                    {status.type === "success" && <p className="text-green-700 mt-3" data-cy="status-message">{status.message}</p>}
+                    {status.type === "error" && <p className="text-red-700 mt-3" data-cy="status-message">{status.message}</p>}
 
                     {pix && (
-                        <div className="mt-6">
+                        <div className="mt-6" data-cy="pix-container">
                             <h3 className="text-xl font-semibold mb-2">Pague com PIX</h3>
                             {pix.qr_code_base64 && (
                                 <img
                                     alt="QR Code PIX"
                                     className="w-64 h-64 border rounded"
+                                    data-cy="pix-qr"
                                     src={`data:image/png;base64,${pix.qr_code_base64}`}
                                 />
                             )}
@@ -206,6 +209,7 @@ export default function App() {
                                     <textarea
                                         readOnly
                                         className="w-full h-24 border p-2 text-xs"
+                                        data-cy="pix-code"
                                         value={pix.qr_code}
                                     />
                                 </div>
