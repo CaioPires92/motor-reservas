@@ -19,6 +19,7 @@ services:
     # buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma migrate deploy --schema src/prisma/schema.prisma && node src/prisma/seed.js
 
     startCommand: node src/app.js
+    healthCheckPath: /health
     autoDeploy: false
     envVars:
       - key: MP_ACCESS_TOKEN
@@ -31,4 +32,4 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         sync: false
-    repoPath: backend
+    rootDir: backend
