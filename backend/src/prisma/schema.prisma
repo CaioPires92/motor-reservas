@@ -25,6 +25,7 @@ model Reserva {
   email       String
   checkin     DateTime
   checkout    DateTime
+  guests      Int      @default(1)
   total       Float
   status      String   @default("pendente")
   criadoEm    DateTime @default(now())
