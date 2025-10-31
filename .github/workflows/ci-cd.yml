@@ -47,6 +47,19 @@ jobs:
           CYPRESS_baseUrl: http://localhost:5173
         run: npm run test:e2e:dev
 
+      - name: Generate Cypress HTML report
+        working-directory: frontend
+        run: npm run report:e2e
+
+      - name: Upload Cypress report artifact
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: cypress-e2e-report
+          path: frontend/cypress/reports
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build -- --mode=production
