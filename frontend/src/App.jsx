@@ -8,6 +8,8 @@ export default function App() {
     const [reserva, setReserva] = useState({ nomeCliente: "", email: "", checkin: "", checkout: "", quartoId: "", guests: 1 });
     const [status, setStatus] = useState({ type: null, message: "" });
     const [pix, setPix] = useState(null);
+    const [disponiveis, setDisponiveis] = useState([]);
+    const [dispCarregada, setDispCarregada] = useState(false);
 
     useEffect(() => {
         axios
@@ -29,6 +31,12 @@ export default function App() {
                 return;
             }
 
+            // Se disponibilidade foi checada, garanta que o quarto está disponível
+            if (dispCarregada && !disponiveis.includes(Number(reserva.quartoId))) {
+                setStatus({ type: "error", message: "Quarto indisponível para o período e hóspedes informados" });
+                return;
+            }
+
             const checkinDate = new Date(reserva.checkin);
             const checkoutDate = new Date(reserva.checkout);
             const diffMs = checkoutDate - checkinDate;
@@ -41,6 +49,7 @@ export default function App() {
                 email: reserva.email,
                 checkin: reserva.checkin,
                 checkout: reserva.checkout,
+                guests: Number(reserva.guests || 1),
                 total,
             };
 
@@ -64,6 +73,38 @@ export default function App() {
         }
     };
 
+    const checarDisponibilidade = async () => {
+        setStatus({ type: null, message: "" });
+        setPix(null);
+        setDispCarregada(false);
+        setDisponiveis([]);
+        try {
+            if (!reserva.checkin || !reserva.checkout || !reserva.guests) {
+                setStatus({ type: "error", message: "Informe check-in, check-out e hóspedes para consultar disponibilidade" });
+                return;
+            }
+            const { data } = await axios.get(`${API_BASE}/disponibilidade`, {
+                params: {
+                    checkin: reserva.checkin,
+                    checkout: reserva.checkout,
+                    guests: Number(reserva.guests || 1),
+                },
+            });
+            const ids = (data?.availableRooms || []).map(r => r.id);
+            setDisponiveis(ids);
+            setDispCarregada(true);
+            if (reserva.quartoId) {
+                const disponivel = ids.includes(Number(reserva.quartoId));
+                setStatus({ type: disponivel ? "success" : "error", message: disponivel ? "Quarto selecionado está disponível" : "Quarto selecionado não está disponível; escolha outro" });
+            } else {
+                setStatus({ type: "success", message: `Encontrados ${ids.length} quartos disponíveis` });
+            }
+        } catch (e) {
+            const msg = e?.response?.data?.error || e?.message || "Falha ao consultar disponibilidade";
+            setStatus({ type: "error", message: msg });
+        }
+    };
+
     return (
         <div className="p-8 bg-gray-100 min-h-screen">
             <h1 className="text-3xl font-bold mb-4">Hotel Reserva</h1>
@@ -74,7 +115,7 @@ export default function App() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {quartos.map(q => (
-                    <div key={q.id} className="bg-white shadow-lg rounded-xl p-4">
+                    <div key={q.id} className={`bg-white shadow-lg rounded-xl p-4 ${dispCarregada ? (disponiveis.includes(q.id) ? "border-green-400 border" : "opacity-60") : ""}`}>
                         <h2 className="text-xl font-semibold">{q.nome}</h2>
                         <p>{q.descricao}</p>
                         <p className="font-bold mt-2">R$ {q.precoNoite.toFixed(2)} / noite</p>
@@ -99,7 +140,16 @@ export default function App() {
                         <input type="date" className="border p-2" onChange={e => setReserva({ ...reserva, checkout: e.target.value })} />
                         <input type="number" min={1} className="border p-2 w-24" placeholder="Hóspedes" onChange={e => setReserva({ ...reserva, guests: e.target.value })} />
                     </div>
-                    <button onClick={handleReserva} className="bg-green-600 text-white px-4 py-2 rounded mt-4">Reservar</button>
+                    <div className="flex gap-2 mt-4">
+                        <button onClick={checarDisponibilidade} className="bg-indigo-600 text-white px-4 py-2 rounded">Checar disponibilidade</button>
+                        <button
+                            onClick={handleReserva}
+                            className="bg-green-600 text-white px-4 py-2 rounded"
+                            disabled={dispCarregada && !disponiveis.includes(Number(reserva.quartoId))}
+                        >
+                            Reservar
+                        </button>
+                    </div>
                     {status.type === "success" && <p className="text-green-700 mt-3">{status.message}</p>}
                     {status.type === "error" && <p className="text-red-700 mt-3">{status.message}</p>}
 
