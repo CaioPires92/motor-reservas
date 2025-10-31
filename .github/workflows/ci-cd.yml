@@ -45,6 +45,7 @@ jobs:
         working-directory: frontend
         env:
           CYPRESS_baseUrl: http://localhost:5173
+          PIX_STUB: true
         run: npm run test:e2e:dev
 
       - name: Generate Cypress HTML report
