@@ -39,6 +39,22 @@ jobs:
         working-directory: frontend
         run: npm run build -- --mode=production
 
+      - name: Install availability service dependencies
+        working-directory: services/availability
+        run: npm install
+
+      - name: Run availability service tests
+        working-directory: services/availability
+        run: npm test -- --watch=false
+
+      - name: Install booking service dependencies
+        working-directory: services/booking
+        run: npm install
+
+      - name: Run booking service tests
+        working-directory: services/booking
+        run: npm test -- --watch=false
+
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
