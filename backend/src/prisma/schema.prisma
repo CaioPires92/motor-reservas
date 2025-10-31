@@ -12,7 +12,7 @@ model Quarto {
   nome        String
   descricao   String
   precoNoite  Float
-  imagens     String[]
+  imagens     String?
   capacidade  Int
   reservas    Reserva[]
 }

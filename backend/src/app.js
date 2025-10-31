@@ -8,7 +8,12 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 
-mercadopago.configure({ access_token: process.env.MP_ACCESS_TOKEN });
+const MP_TOKEN = process.env.MP_ACCESS_TOKEN;
+if (MP_TOKEN) {
+  mercadopago.configure({ access_token: MP_TOKEN });
+} else {
+  console.warn("[WARN] MP_ACCESS_TOKEN ausente; endpoints de pagamento PIX indisponíveis.");
+}
 
 app.use(cors());
 app.use(express.json());
@@ -31,6 +36,9 @@ app.post("/api/reservas", async (req, res) => {
 // --- Pagamento PIX ---
 app.post("/api/pagamento/pix", async (req, res) => {
     try {
+        if (!MP_TOKEN) {
+            return res.status(503).json({ error: "Pagamento PIX indisponível: token não configurado" });
+        }
         const { email, total } = req.body;
         const payment = await mercadopago.payment.create({
             transaction_amount: Number(total),

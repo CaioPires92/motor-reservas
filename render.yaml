@@ -1,5 +1,29 @@
 services:
   - type: web
+    name: availability-service
+    env: node
+    rootDir: services/availability
+    buildCommand: npm install && npm run prisma:generate && npm run prisma:push && npm run db:seed
+    startCommand: npm run dev
+    envVars:
+      - key: DATABASE_URL
+        value: file:./dev.db
+    autoDeploy: true
+  - type: web
+    name: booking-service
+    env: node
+    rootDir: services/booking
+    buildCommand: npm install && npm run prisma:generate && npm run prisma:push && npm run db:seed
+    startCommand: npm run dev
+    envVars:
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: AVAILABILITY_URL
+        sync: false
+      - key: MP_ACCESS_TOKEN
+        sync: false
+    autoDeploy: true
+  - type: web
     name: motor-reservas-backend
     env: node
     plan: free
