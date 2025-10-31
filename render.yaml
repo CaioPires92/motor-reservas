@@ -4,14 +4,11 @@ services:
     env: node
     plan: free
     region: oregon
-    # --- SQLite com disco persistente (MVP) ---
-    # Para usar SQLite de forma segura no Render, anexe um disco persistente
-    # e aponte o DATABASE_URL para esse caminho. Exemplo:
-    # disk:
-    #   name: data
-    #   mountPath: /var/data
-    #   sizeGB: 2
-    # DATABASE_URL esperado: file:/var/data/dev.db
+    # Disco persistente para SQLite
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 2
 
     buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma db push --schema src/prisma/schema.prisma && node src/prisma/seed.js
     # --- Postgres + migrações (recomendado para produção) ---
@@ -25,9 +22,9 @@ services:
       - key: MP_ACCESS_TOKEN
         sync: false
       - key: DATABASE_URL
-        sync: false
+        value: file:/var/data/dev.db
       - key: PIX_STUB
-        sync: false
+        value: "true"
       - key: AVAILABILITY_URL
         sync: false
       - key: CORS_ALLOWED_ORIGINS
