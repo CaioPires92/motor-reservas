@@ -4,10 +4,13 @@ node_modules/
 # Environment files
 backend/.env
 frontend/.env
+services/availability/.env
+services/booking/.env
 
 # Build outputs
 dist/
 coverage/
+frontend/cypress/reports/
 
 # OS metadata
 .DS_Store
@@ -19,3 +22,7 @@ coverage/
 .kiro/steering/byterover-rules.md
 .qoder/rules/byterover-rules.md
 .augment/rules/byterover-rules.md
+
+# Prisma/SQLite dev & test databases
+**/dev.db
+**/test.db
