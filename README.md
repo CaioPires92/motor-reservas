@@ -172,6 +172,63 @@ motor-reservas/
 
 > **Importante:** a pasta `docs/` deve conter, no mínimo, `PRD.md` e `DDD-architecture.md` com os detalhes funcionais e técnicos do produto.
 
+## 📦 Resumo das implementações
+
+### Backend (Node.js + Express + Prisma)
+- Endpoints com prefixo `/api`:
+  - `GET /api/quartos` — lista quartos.
+  - `GET /api/disponibilidade` — consulta disponibilidade por período e hóspedes, integrando opcionalmente microsserviço externo.
+  - `POST /api/reservas` — cria reserva com validações de datas, email e capacidade.
+  - `PUT /api/reservas/:id` — atualiza reserva com checagem de conflito.
+  - `DELETE /api/reservas/:id` — cancela reserva.
+  - `GET /api/reservas/historico` — histórico por email/data.
+  - `POST /api/pagamento/pix` — gera QR Code PIX (stub ou Mercado Pago real).
+  - `POST /api/pagamento/cartao` e `GET /api/pagamento/status/:id` — integração com cartão via Mercado Pago.
+  - `POST /api/webhooks/mercadopago` — webhook para atualização de status de pagamento.
+- Observabilidade e segurança:
+  - Health-check em `/health` com informações de ambiente.
+  - `helmet`, `compression` e CORS por env (`CORS_ALLOWED_ORIGINS`).
+  - Rate limiting configurável por env para reservas e pagamentos.
+  - Sentry opcional (`SENTRY_DSN`) com `requestHandler` e `errorHandler`.
+- Banco de dados e migrações:
+  - Prisma com `Quarto` e `Reserva`.
+  - Seed automático em dev e script `src/prisma/seed.js` para produção.
+  - Migração de proteção a overbooking (`tsrange + exclusion constraint`).
+  - Índices em `Reserva` para consultas por período e histórico.
+
+### Frontend (React + Vite + Tailwind)
+- SPA com listagem de quartos, checagem de disponibilidade e fluxo de reserva.
+- Componentes principais:
+  - `RoomGrid`, `RoomCard`, `SkeletonCard` — catálogo de quartos.
+  - `CheckoutForm`, `ConfirmModal` — fluxo de reserva e confirmação.
+  - `PixPanel`, `CardPaymentBrick`, `PaymentMethodSelector` — pagamentos PIX/cartão.
+  - `ReservationHistory`, `StatusToast`, `Spinner`, `Header`, `EmptyState` — suporte a histórico, feedback e layout.
+- Integrações:
+  - Sentry com `BrowserTracing` e `ErrorBoundary`.
+  - `API_BASE` dinâmico: em dev usa `"/api"` via proxy do Vite; em produção usa `VITE_API_URL`.
+  - Utilitários de preço (`calculateNights`, `formatBRL`).
+- Estilo:
+  - Tailwind configurado e `index.css` com estilos base.
+
+### Infra / CI/CD
+- Netlify (`netlify.toml`):
+  - `[build] base = "frontend"`, `publish = "dist"`, `command = "npm install && npm run build"`.
+  - `[dev] framework = "vite"`, `port = 5173` e `targetPort = 5173`.
+- Render (`render.yaml`):
+  - Build com `prisma generate`, `migrate deploy` e `seed`.
+  - Variáveis de ambiente para rate limiting, CORS, PIX e disponibilidade.
+- GitHub Actions:
+  - `ci-cd.yml`: testes backend/frontend/services e deploy automatizado (Netlify + Render) com segredos.
+  - `prod-smoke.yml`: smoke horário com health e listagem de quartos.
+- Scripts:
+  - `scripts/smoke.sh` e `scripts/smoke.ps1` para validação rápida.
+
+### Microsserviços (opcionais)
+- Availability Service: endpoint `/availability` com validação, rate limit e consulta a `room/reservation` em Prisma.
+- Booking Service: orquestra criação/atualização de reservas, verifica disponibilidade externa e integra pagamentos PIX.
+
+> Em produção atual, o frontend está em Netlify e o backend no Render. `VITE_API_URL` foi definido como `https://motor-reservas-backend.onrender.com/api` e o deploy de produção está ativo.
+
 ## 🔑 Variáveis de ambiente
 
 Crie o arquivo `.env` a partir do exemplo:
