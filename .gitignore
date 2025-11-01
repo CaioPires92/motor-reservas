@@ -26,3 +26,6 @@ frontend/cypress/reports/
 # Prisma/SQLite dev & test databases
 **/dev.db
 **/test.db
+
+# Local Netlify folder
+.netlify

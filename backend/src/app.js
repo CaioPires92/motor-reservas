@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
+import * as Sentry from "@sentry/node";
 import dotenv from "dotenv";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import rateLimit from "express-rate-limit";
@@ -18,14 +20,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const app = express();
-const defaultDbUrl = `file:${path.resolve(__dirname, "./prisma/dev.db")}`;
+// confiar no proxy (Render/Netlify) para IPs e headers corretos
+app.set("trust proxy", 1);
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error("[FATAL] DATABASE_URL não configurada. Defina uma URL PostgreSQL válida.");
+  // Em produção no Render, configure via Settings → Environment → DATABASE_URL
+}
 export const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DATABASE_URL || defaultDbUrl } },
+  datasources: { db: { url: databaseUrl } },
 });
+
+// Sentry (opcional)
+const SENTRY_DSN = process.env.SENTRY_DSN;
+if (SENTRY_DSN) {
+  try {
+    Sentry.init({ dsn: SENTRY_DSN, environment: process.env.NODE_ENV || "production" });
+    app.use(Sentry.Handlers.requestHandler());
+  } catch (e) {
+    console.warn("[sentry] falha ao inicializar:", e?.message || e);
+  }
+}
 
 const MP_TOKEN = process.env.MP_ACCESS_TOKEN;
 const PIX_STUB = process.env.PIX_STUB === "true";
 const AVAILABILITY_URL = process.env.AVAILABILITY_URL;
+const FETCH_TIMEOUT_MS = Number(process.env.AVAILABILITY_TIMEOUT_MS || 3000);
+const ENABLE_ERROR_TEST = process.env.ENABLE_ERROR_TEST === "true";
 let mpPayment = null;
 if (MP_TOKEN) {
   try {
@@ -38,27 +59,34 @@ if (MP_TOKEN) {
   console.warn("[WARN] MP_ACCESS_TOKEN ausente; endpoints de pagamento PIX indisponíveis.");
 }
 
-// Segurança básica e CORS por ambiente
+// Segurança básica, compressão e CORS por ambiente
 app.use(helmet());
+app.use(compression());
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
-const corsOptions = allowedOrigins.length > 0 ? { origin: allowedOrigins } : {};
+const corsOptions = allowedOrigins.length > 0 
+  ? { origin: allowedOrigins, exposedHeaders: ["X-Total-Count"] }
+  : { exposedHeaders: ["X-Total-Count"] };
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Rate limiting básico para endpoints críticos
+// Rate limiting básico para endpoints críticos (parametrizável por env)
+const RL_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000);
+const RL_RES_MAX = Number(process.env.RATE_LIMIT_RESERVAS_MAX || 10);
+const RL_PIX_MAX = Number(process.env.RATE_LIMIT_PIX_MAX || 10);
 const reservasLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minuto
-  max: 10,
+  windowMs: RL_WINDOW_MS,
+  max: RL_RES_MAX,
   message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
 });
 const pixLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
+  windowMs: RL_WINDOW_MS,
+  max: RL_PIX_MAX,
   message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
 });
+const cardLimiter = pixLimiter;
 
 // Health check simples com verificação do banco e flags de serviços
 app.get("/health", async (req, res) => {
@@ -69,11 +97,19 @@ app.get("/health", async (req, res) => {
       pixStub: PIX_STUB,
       mercadoPago: Boolean(MP_TOKEN),
       availabilityConfigured: Boolean(AVAILABILITY_URL),
+      commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT_SHA || null,
     });
   } catch (e) {
     return res.status(503).json({ status: "degraded" });
   }
 });
+
+// Endpoint opcional para validar Sentry no backend (habilite via ENABLE_ERROR_TEST=true)
+if (ENABLE_ERROR_TEST) {
+  app.get("/error-test", (req, res) => {
+    throw new Error("Sentry backend test error");
+  });
+}
 
 // Seed de desenvolvimento: popula quartos quando o banco está vazio
 async function seedDevRooms() {
@@ -157,17 +193,26 @@ app.post("/api/reservas", reservasLimiter, async (req, res) => {
     // Cálculo do total no servidor (proteção contra manipulação no cliente)
     const totalCalculado = calcularTotal(quarto.precoNoite, startMid, endMid);
 
-    const reserva = await prisma.reserva.create({
-      data: {
-        quartoId: quarto.id,
-        nomeCliente,
-        email,
-        checkin: start,
-        checkout: end,
-        guests,
-        total: totalCalculado,
-      },
-    });
+    let reserva;
+    try {
+      reserva = await prisma.reserva.create({
+        data: {
+          quartoId: quarto.id,
+          nomeCliente,
+          email,
+          checkin: start,
+          checkout: end,
+          guests,
+          total: totalCalculado,
+        },
+      });
+    } catch (err) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('exclusion') || msg.includes('reserva_no_overlap')) {
+        return res.status(409).json({ error: "Quarto indisponível no período selecionado" });
+      }
+      throw err;
+    }
 
     // Mantém contrato atual (200) para compatibilidade com testes existentes
     return res.json(reserva);
@@ -213,10 +258,19 @@ app.put("/api/reservas/:id", async (req, res) => {
     }
 
     const total = calcularTotal(quarto.precoNoite, startMid, endMid);
-    const atualizado = await prisma.reserva.update({
-      where: { id },
-      data: { quartoId: quarto.id, checkin: start, checkout: end, guests, total }
-    });
+    let atualizado;
+    try {
+      atualizado = await prisma.reserva.update({
+        where: { id },
+        data: { quartoId: quarto.id, checkin: start, checkout: end, guests, total }
+      });
+    } catch (err) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('exclusion') || msg.includes('reserva_no_overlap')) {
+        return res.status(409).json({ error: "Conflito de reserva no período solicitado" });
+      }
+      throw err;
+    }
     return res.json(atualizado);
   } catch (e) {
     console.error(e);
@@ -240,9 +294,10 @@ app.get("/api/reservas/:id", async (req, res) => {
 // Listar reservas com filtros (quartoId, período sobreposto)
 app.get("/api/reservas", async (req, res) => {
   try {
-    const { quartoId, inicio, fim } = req.query;
+    const { quartoId, inicio, fim, email } = req.query;
     const where = {};
     if (quartoId) where.quartoId = Number(quartoId);
+    if (email) where.email = String(email);
 
     if (inicio && fim) {
       let start, end;
@@ -261,11 +316,47 @@ app.get("/api/reservas", async (req, res) => {
       return res.status(400).json({ error: "Parâmetros de período requerem inicio e fim" });
     }
 
-    const reservas = await prisma.reserva.findMany({ where });
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const skip = (page - 1) * limit;
+    const [total, reservas] = await Promise.all([
+      prisma.reserva.count({ where }),
+      prisma.reserva.findMany({ where, orderBy: { criadoEm: 'desc' }, include: { quarto: true }, take: limit, skip })
+    ]);
+    res.setHeader("X-Total-Count", String(total));
     return res.json(reservas);
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Erro ao listar reservas" });
+  }
+});
+
+// Histórico minimalista por e-mail (retorna apenas campos relevantes)
+app.get("/api/reservas/historico", async (req, res) => {
+  try {
+    const email = String(req.query.email || "").trim();
+    if (!email) return res.status(400).json({ error: "Parâmetro 'email' é obrigatório" });
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const skip = (page - 1) * limit;
+    const where = { email };
+    const select = {
+      id: true,
+      status: true,
+      total: true,
+      checkin: true,
+      checkout: true,
+      quarto: { select: { nome: true } },
+    };
+    const [total, reservas] = await Promise.all([
+      prisma.reserva.count({ where }),
+      prisma.reserva.findMany({ where, orderBy: { criadoEm: 'desc' }, select, take: limit, skip })
+    ]);
+    res.setHeader("X-Total-Count", String(total));
+    return res.json(reservas);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Erro ao listar histórico" });
   }
 });
 
@@ -284,14 +375,18 @@ app.get("/api/disponibilidade", async (req, res) => {
         url.searchParams.set("checkin", String(checkin));
         url.searchParams.set("checkout", String(checkout));
         url.searchParams.set("guests", String(guests));
-        const resp = await fetch(url);
+        const ac = new AbortController();
+        const to = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
+        const resp = await fetch(url, { signal: ac.signal });
+        clearTimeout(to);
         if (resp.ok) {
           const data = await resp.json();
           return res.json(data);
         }
         console.warn("[availability] resposta não-ok do serviço externo, usando cálculo local:", resp.status);
       } catch (err) {
-        console.warn("[availability] falha ao consultar serviço externo, usando cálculo local:", err?.message || err);
+        const aborted = (err && (err.name === 'AbortError' || /aborted|abort/i.test(String(err.name||'')+String(err.message||''))));
+        console.warn("[availability] falha ao consultar serviço externo, usando cálculo local:", aborted ? `timeout ${FETCH_TIMEOUT_MS}ms` : (err?.message || err));
       }
     }
 
@@ -328,7 +423,12 @@ app.delete("/api/reservas/:id", async (req, res) => {
 // --- Pagamento PIX ---
 app.post("/api/pagamento/pix", pixLimiter, async (req, res) => {
   try {
-    const { email, total } = req.body;
+    const { email, total, reservaId } = req.body;
+
+    if (reservaId && Number.isFinite(Number(reservaId))) {
+      const r = await prisma.reserva.findUnique({ where: { id: Number(reservaId) } });
+      if (!r) return res.status(404).json({ error: "Reserva não encontrada para gerar PIX" });
+    }
 
     if (PIX_STUB) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -361,9 +461,21 @@ app.post("/api/pagamento/pix", pixLimiter, async (req, res) => {
         description: "Reserva de hotel",
         payment_method_id: "pix",
         payer: { email },
+        external_reference: reservaId ? String(reservaId) : undefined,
       }
     });
     const body = payment?.body ?? payment;
+    // associa o pagamento à reserva, se informado
+    try {
+      if (reservaId && body?.id) {
+        await prisma.reserva.update({
+          where: { id: Number(reservaId) },
+          data: { mpPaymentId: String(body.id) }
+        });
+      }
+    } catch (e) {
+      console.warn("[pix] falha ao vincular mpPaymentId à reserva:", e?.message || e);
+    }
     res.json({
       qr_code_base64: body?.point_of_interaction?.transaction_data?.qr_code_base64,
       qr_code: body?.point_of_interaction?.transaction_data?.qr_code,
@@ -375,11 +487,133 @@ app.post("/api/pagamento/pix", pixLimiter, async (req, res) => {
   }
 });
 
+// Pagamento com Cartão (Mercado Pago)
+app.post("/api/pagamento/cartao", cardLimiter, async (req, res) => {
+  try {
+    if (!MP_TOKEN) {
+      return res.status(503).json({ error: "Cartão indisponível: token não configurado" });
+    }
+    const { token, email, total, installments, payment_method_id, issuer_id, reservaId } = req.body || {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(email)) || Number(total) <= 0 || !token || !payment_method_id) {
+      return res.status(400).json({ error: "Dados inválidos: token, email, total e payment_method_id são obrigatórios" });
+    }
+    if (reservaId && Number.isFinite(Number(reservaId))) {
+      const r = await prisma.reserva.findUnique({ where: { id: Number(reservaId) } });
+      if (!r) return res.status(404).json({ error: "Reserva não encontrada para pagamento" });
+    }
+
+    const payment = await mpPayment.create({
+      body: {
+        transaction_amount: Number(total),
+        description: "Reserva de hotel",
+        token: String(token),
+        installments: Number(installments || 1),
+        payment_method_id: String(payment_method_id),
+        issuer_id: issuer_id ? String(issuer_id) : undefined,
+        payer: { email: String(email) },
+        external_reference: reservaId ? String(reservaId) : undefined,
+      }
+    });
+    const body = payment?.body ?? payment;
+    try {
+      if (reservaId && body?.id) {
+        const updates = { mpPaymentId: String(body.id) };
+        if (String(body?.status).toLowerCase() === 'approved') updates.status = 'paga';
+        await prisma.reserva.update({ where: { id: Number(reservaId) }, data: updates });
+      }
+    } catch (e) {
+      console.warn("[card] falha ao vincular mpPaymentId/status à reserva:", e?.message || e);
+    }
+    return res.json({ id: body?.id, status: body?.status, status_detail: body?.status_detail });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Erro ao processar pagamento com cartão" });
+  }
+});
+
+// Consulta status de pagamento no Mercado Pago (PIX ou cartão)
+app.get("/api/pagamento/status/:id", async (req, res) => {
+  try {
+    if (!MP_TOKEN || !mpPayment) {
+      return res.status(503).json({ error: "Consulta indisponível: token não configurado" });
+    }
+    const pid = String(req.params.id);
+    const payment = await mpPayment.get({ id: pid });
+    const body = payment?.body ?? payment;
+    return res.json({ id: body?.id, status: body?.status, status_detail: body?.status_detail, reservaId: body?.external_reference || null });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Erro ao consultar status do pagamento" });
+  }
+});
+
+// Webhook do Mercado Pago para atualizar status da reserva
+// Configure a URL no painel do MP apontando para: /api/webhooks/mercadopago
+app.all("/api/webhooks/mercadopago", express.json({ type: "application/json" }), async (req, res) => {
+  try {
+    if (!MP_TOKEN || !mpPayment) {
+      return res.status(503).json({ ok: false });
+    }
+    const q = req.query || {};
+    const b = (req.body && typeof req.body === 'object') ? req.body : {};
+    const paymentId = q.id || q["data.id"] || b?.data?.id || b?.id;
+    if (!paymentId) {
+      return res.status(200).json({ ok: true }); // ignora eventos irrelevantes
+    }
+    // Obtém pagamento no MP
+    const payment = await mpPayment.get({ id: String(paymentId) });
+    const body = payment?.body ?? payment;
+    const status = String(body?.status || '').toLowerCase();
+    const externalRef = body?.external_reference;
+    if (!externalRef) {
+      return res.status(200).json({ ok: true });
+    }
+    const reservaIdNum = Number(externalRef);
+    if (!Number.isFinite(reservaIdNum)) {
+      return res.status(200).json({ ok: true });
+    }
+    const atual = await prisma.reserva.findUnique({ where: { id: reservaIdNum } });
+    if (atual) {
+      const novoStatus = status === 'approved' ? 'paga' : (status === 'cancelled' || status === 'rejected') ? 'cancelada' : null;
+      const updates = {};
+      if (novoStatus && atual.status !== novoStatus) updates.status = novoStatus;
+      if (body?.id && atual.mpPaymentId !== String(body.id)) updates.mpPaymentId = String(body.id);
+      if (Object.keys(updates).length > 0) {
+        await prisma.reserva.update({ where: { id: reservaIdNum }, data: updates });
+      }
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("[mp-webhook] erro:", e);
+    return res.status(200).json({ ok: true }); // evita reentregas agressivas
+  }
+});
+
 const PORT = process.env.PORT || 4000;
+let server;
 if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, "0.0.0.0", () =>
+  server = app.listen(PORT, "0.0.0.0", () =>
     console.log(`Servidor rodando em http://0.0.0.0:${PORT}`),
   );
+}
+
+async function gracefulShutdown() {
+  try {
+    await prisma.$disconnect();
+  } catch (_) {}
+  if (server && server.listening) {
+    server.close(() => process.exit(0));
+  } else {
+    process.exit(0);
+  }
+}
+process.on("SIGTERM", gracefulShutdown);
+process.on("SIGINT", gracefulShutdown);
+
+// Sentry error handler no final (se habilitado)
+if (SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
 }
 
 export default app;

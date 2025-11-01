@@ -10,23 +10,49 @@
 - [Exemplos de payloads](#exemplos-de-payloads-rápidos)
  - [Rodar testes](#rodar-testes-rápido)
 
+## 🌐 Produção (Live)
+
+- Backend: https://motor-reservas-backend.onrender.com (health: https://motor-reservas-backend.onrender.com/health)
+- Frontend: https://magnificent-moxie-8bdddd.netlify.app/
+
 ## ⚡ Produção em 5 minutos
 
 1) Backend (Render)
 - Tipo: Web Service, Root: `backend`
-- Build: `npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma db push --schema src/prisma/schema.prisma && node src/prisma/seed.js`
+- Build: `npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma migrate deploy --schema src/prisma/schema.prisma && node src/prisma/seed.js`
 - Start: `node src/app.js`
-- Variáveis: defina `DATABASE_URL`, `PIX_STUB=true` (MVP), `CORS_ALLOWED_ORIGINS=https://seusite.netlify.app` e (opcional) `AVAILABILITY_URL`. Para PIX real: `PIX_STUB=false` + `MP_ACCESS_TOKEN`.
+- Variáveis: defina `DATABASE_URL` (PostgreSQL do Render), `PIX_STUB=true` (MVP), `CORS_ALLOWED_ORIGINS=https://magnificent-moxie-8bdddd.netlify.app` e (opcional) `AVAILABILITY_URL`. Para PIX real: `PIX_STUB=false` + `MP_ACCESS_TOKEN`.
 
 2) Frontend (Netlify)
 - Base: `frontend`, Build: `npm ci && npm run build`, Publish: `frontend/dist`
-- Variáveis: `VITE_API_URL=https://SEU_BACKEND_RENDER.onrender.com/api`
+- Variáveis: `VITE_API_URL=https://motor-reservas-backend.onrender.com/api`
 
 3) Validar
-- `GET https://SEU_BACKEND/health` → `{ status: "ok" }`
+- `GET https://motor-reservas-backend.onrender.com/health` → `{ status: "ok" }`
 - Acesse o frontend, crie uma reserva e verifique o PIX (stub ou real).
 
 Detalhes completos em: [Guia de Produção](#-guia-de-produção)
+
+## 🔧 Atualização de imagens em produção
+
+Para popular o campo `imagens` dos quartos já existentes no banco de produção (Render/PostgreSQL), execute o patch abaixo no Shell do serviço (Render → seu serviço backend → Shell):
+
+```
+# Caminho padrão do projeto no Render
+cd /opt/render/project/src/backend
+
+# (Opcional) Se o container acabou de subir e não tem node_modules:
+npm ci --omit=dev
+
+# Rodar o patch — usa padrões por nome e fallback
+npm run db:patch:images
+```
+
+Notas:
+- O script só atualiza quartos sem `imagens` definida e registra a quantidade atualizada.
+- Não altera registros que já possuam imagens.
+- Em ambientes locais: defina `DATABASE_URL` e rode `cd backend && npm ci && npm run db:patch:images`.
+
 
 ## ✅ Checklist MVP (rápido)
 
@@ -198,6 +224,22 @@ O servidor Express ficará disponível em `http://localhost:4000`. As rotas prin
 - `GET /api/quartos` — lista quartos cadastrados no banco via Prisma.【F:backend/src/app.js†L17-L21】
 - `POST /api/reservas` — cria uma reserva persistindo no SQLite e retornando os dados salvos.【F:backend/src/app.js†L23-L31】
 - `POST /api/pagamento/pix` — gera um pagamento PIX no Mercado Pago e devolve o QR Code em base64.【F:backend/src/app.js†L33-L47】
+
+### Evitando overbooking (nível banco)
+
+- Implementado no PostgreSQL via migration: `backend/src/prisma/migrations/20251101093000_overbooking_guard/migration.sql`.
+- Como funciona:
+  - Coluna gerada `periodo tsrange = [checkin, checkout)`.
+  - Exclusion constraint: `EXCLUDE USING gist (quartoId WITH =, periodo WITH &&) WHERE (status <> 'cancelada')`.
+  - Impede sobreposição de reservas para o mesmo quarto, mesmo em corridas de escrita.
+- O backend já trata esse erro e retorna 409 (conflito de reserva) quando ocorrer.
+
+### Índices de performance
+
+- Adicionados índices para acelerar consultas mais comuns:
+  - `Reserva(quartoId, checkin, checkout)` — auxilia filtros por quarto/período.
+  - `Reserva(email, criadoEm desc)` — acelera histórico por e-mail ordenado.
+- Migration: `backend/src/prisma/migrations/20251101094000_reserva_indexes/migration.sql`.
 
 O schema Prisma mantém o relacionamento entre quartos e reservas e usa SQLite por padrão.【F:backend/src/prisma/schema.prisma†L1-L27】
 
@@ -380,7 +422,64 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
   - `PIX_STUB` — `true` no MVP para simular PIX; para PIX real: `false` + `MP_ACCESS_TOKEN`
   - `MP_ACCESS_TOKEN` — somente para PIX real
   - `AVAILABILITY_URL` — URL do microserviço de disponibilidade (opcional)
-  - `CORS_ALLOWED_ORIGINS` — lista CSV de origens permitidas, ex.: `https://seusite.netlify.app,https://app.seudominio.com`
+  - `CORS_ALLOWED_ORIGINS` — lista CSV de origens permitidas, ex.: `https://magnificent-moxie-8bdddd.netlify.app,https://app.seudominio.com`
+  - `AVAILABILITY_TIMEOUT_MS` — timeout (ms) da consulta ao serviço externo de disponibilidade (padrão 3000)
+  - `SENTRY_DSN` — opcional, ativa captura de erros no backend
+  - `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_RESERVAS_MAX`, `RATE_LIMIT_PIX_MAX` — limites configuráveis de rate limit
+
+### Histórico de reservas (minimalista)
+
+- Endpoint dedicado: `GET /api/reservas/historico?email=SEU_EMAIL`
+- Retorna apenas: `id, status, total, checkin, checkout, quarto.nome`
+- Exemplo:
+```
+curl -s "https://motor-reservas-backend.onrender.com/api/reservas/historico?email=cliente@exemplo.com"
+```
+– Alternativa (legado): `GET /api/reservas?email=...` (retorna todos os campos)
+
+### Webhook Mercado Pago (PIX)
+
+- Endpoint no backend: `POST https://motor-reservas-backend.onrender.com/api/webhooks/mercadopago`
+- Configuração no painel do Mercado Pago:
+  - URL de webhook: `https://motor-reservas-backend.onrender.com/api/webhooks/mercadopago`
+  - Eventos: `payment`
+  - Token de acesso: configure `MP_ACCESS_TOKEN` no Render
+- Como funciona:
+  - No front, após criar a reserva, o PIX é gerado com `external_reference` igual ao `reserva.id`.
+  - O webhook recebe o `payment.id`, consulta no MP e, se `status=approved`, atualiza `Reserva.status` para `paga`.
+  - Em caso de `cancelled/rejected`, atualiza para `cancelada`.
+  - Campo de auditoria: `Reserva.mpPaymentId` armazena o id do pagamento no MP.
+
+### Cartão (Mercado Pago)
+
+- Backend: `POST /api/pagamento/cartao`
+  - Body: `{ token, email, total, installments, payment_method_id, issuer_id?, reservaId? }`
+  - Retorno: `{ id, status, status_detail }`
+  - Usa o mesmo webhook para refletir mudanças de status; se vier aprovado, o backend já marca `status='paga'`.
+- Frontend:
+  - Integre o Card Payment Brick do Mercado Pago para tokenizar o cartão no navegador (public key).
+  - Envie ao backend: `token`, `email`, `total`, `installments`, `payment_method_id`, `issuer_id` (se fornecido) e `reservaId`.
+- Variáveis:
+  - Backend: `MP_ACCESS_TOKEN`
+  - Frontend: `VITE_MP_PUBLIC_KEY` (public key do Mercado Pago)
+
+### Consultar status de pagamento
+
+- Endpoint: `GET /api/pagamento/status/:id`
+  - Retorna: `{ id, status, status_detail, reservaId }` consultando direto no Mercado Pago.
+  - Útil como fallback para operação manual/diagnóstico.
+
+### Observabilidade
+
+- Backend: defina `SENTRY_DSN` no Render para capturar erros. O endpoint `/health` retorna `commit` (RENDER_GIT_COMMIT) para rastreio de versão.
+- Frontend (opcional): configure `VITE_SENTRY_DSN` e integre no `main.jsx` caso deseje monitorar erros no navegador.
+
+#### Teste rápido do Sentry (backend)
+
+1. Render → backend → Environment: `ENABLE_ERROR_TEST=true` e `SENTRY_DSN=<seu DSN>` → Deploy latest.
+2. Acesse `https://SEU_BACKEND.onrender.com/error-test`.
+3. Verifique o evento no Sentry (após alguns segundos).
+4. Volte `ENABLE_ERROR_TEST=false` e faça novo deploy.
 
 ### Frontend (Netlify)
 
@@ -388,7 +487,10 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
 - Build: `npm ci && npm run build`
 - Publish: `frontend/dist`
 - Variáveis:
-  - `VITE_API_URL=https://SEU_BACKEND_RENDER.onrender.com/api`
+  - `VITE_API_URL=https://motor-reservas-backend.onrender.com/api`
+  - `VITE_SENTRY_DSN=` (opcional, ativa Sentry no frontend)
+  - `VITE_SENTRY_TRACES_SAMPLE_RATE=0.1` (opcional, taxa de amostragem de performance)
+  - `VITE_STATUS_POLL_ATTEMPTS=12` e `VITE_STATUS_POLL_INTERVAL=5000` (opcional, polling do status da reserva no modal)
 
 ### Microserviços (opcional)
 
@@ -405,7 +507,7 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
 ### CORS
 
 - Defina `CORS_ALLOWED_ORIGINS` como lista separada por vírgulas com os domínios do frontend (produção e, se necessário, staging):
-  - Ex.: `CORS_ALLOWED_ORIGINS=https://seusite.netlify.app,https://app.seudominio.com`
+  - Ex.: `CORS_ALLOWED_ORIGINS=https://magnificent-moxie-8bdddd.netlify.app,https://app.seudominio.com`
 - Se vazio (padrão em dev), CORS permanece aberto.
 
 ### PIX
@@ -416,8 +518,8 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
 ### Validação pós-deploy
 
 - Backend:
-  - `GET https://SEU_BACKEND/health` → `{ status: "ok" }`
-  - `GET https://SEU_BACKEND/api/quartos` → lista de quartos
+  - `GET https://motor-reservas-backend.onrender.com/health` → `{ status: "ok" }`
+  - `GET https://motor-reservas-backend.onrender.com/api/quartos` → lista de quartos
 - Frontend:
   - Aponte `VITE_API_URL` para o backend; valide fluxo de reserva até exibição do PIX (stub ou real).
 
@@ -439,6 +541,33 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
 - [ ] `DELETE /api/reservas/:id` marca como `cancelada`.
 - [ ] Cenários de erro: email inválido (400), datas inválidas (400), capacidade excedida (400), conflito (409), PIX indisponível sem token e sem stub (503).
 
+## 🧪 Smoke test (produção)
+
+```bash
+# Health
+curl -s https://motor-reservas-backend.onrender.com/health
+
+# Quartos
+curl -s https://motor-reservas-backend.onrender.com/api/quartos
+
+# Disponibilidade
+curl -s "https://motor-reservas-backend.onrender.com/api/disponibilidade?checkin=2025-12-01&checkout=2025-12-03&guests=2"
+
+# Criar reserva
+curl -s -X POST https://motor-reservas-backend.onrender.com/api/reservas \
+  -H 'Content-Type: application/json' \
+  -d '{"quartoId":1,"nomeCliente":"Smoke Test","email":"cliente@exemplo.com","checkin":"2025-12-01T00:00:00.000Z","checkout":"2025-12-03T00:00:00.000Z","guests":2}'
+
+# Gerar PIX (real: precisa PIX_STUB=false + MP_ACCESS_TOKEN)
+curl -s -X POST https://motor-reservas-backend.onrender.com/api/pagamento/pix \
+  -H 'Content-Type: application/json' \
+-d '{"email":"cliente@exemplo.com","total":350,"reservaId":123}'
+```
+
+Alternativas prontas:
+- Bash/Linux/macOS: `chmod +x scripts/smoke.sh && scripts/smoke.sh`
+- PowerShell/Windows: `pwsh -File scripts/smoke.ps1`
+
 ## 🧰 Coleções Postman/Insomnia
 
 - Coleção Postman: `docs/postman/MotorReservas.postman_collection.json`
@@ -446,7 +575,7 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
   - Variáveis da coleção:
     - `baseUrl` (padrão: `http://localhost:4000`)
     - `apiBase` (padrão: `{{baseUrl}}/api`)
-  - Para produção, ajuste `baseUrl` para a URL do backend Render, por exemplo: `https://SEU_BACKEND_RENDER.onrender.com`.
+  - Para produção, ajuste `baseUrl` para a URL do backend Render, por exemplo: `https://motor-reservas-backend.onrender.com`.
  - Coleção Insomnia: `docs/insomnia/MotorReservas-insomnia.json`
    - Insomnia → Application Menu → Import/Export → Import Data → From File.
    - Ajuste as variáveis no ambiente (baseUrl, apiBase, checkin, checkout, guests, reservaId) conforme necessário.

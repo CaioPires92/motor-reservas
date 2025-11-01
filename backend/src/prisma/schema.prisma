@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -28,5 +28,9 @@ model Reserva {
   guests      Int      @default(1)
   total       Float
   status      String   @default("pendente")
+  mpPaymentId String?
   criadoEm    DateTime @default(now())
+
+  @@index([quartoId, checkin, checkout], name: "idx_reserva_quarto_periodo")
+  @@index([email, criadoEm], name: "idx_reserva_email_criadoEm")
 }

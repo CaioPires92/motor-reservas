@@ -1,0 +1,66 @@
+name: Production Smoke
+
+on:
+  schedule:
+    - cron: '0 * * * *' # hourly
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Hit health and basic endpoints
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ vars.PROD_BASE_URL }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - name: Compute BASE_URL
+        id: base
+        shell: bash
+        run: |
+          BASE="${BASE_URL:-https://motor-reservas-backend.onrender.com}"
+          echo "BASE=$BASE" >> "$GITHUB_OUTPUT"
+
+      - name: Health check
+        shell: bash
+        run: |
+          set -e
+          BASE='${{ steps.base.outputs.BASE }}'
+          echo "Checking $BASE/health"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health")
+          echo "HTTP $code"
+          test "$code" -eq 200
+
+      - name: List rooms
+        shell: bash
+        run: |
+          set -e
+          BASE='${{ steps.base.outputs.BASE }}'
+          echo "Checking $BASE/api/quartos"
+          body=$(curl -s "$BASE/api/quartos")
+          echo "$body" | head -c 500
+          # rudimentary check: must start with '['
+          first=$(printf "%s" "$body" | sed -n '1s/^.//p')
+          test "${body:0:1}" = "["
+
+      - name: Notify Slack on failure (optional)
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        shell: bash
+        run: |
+          payload=$(jq -n --arg text "Production smoke failed for $GITHUB_REPOSITORY on $GITHUB_REF. See run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" '{text: $text}')
+          curl -s -X POST -H 'Content-Type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL" || true
+
+      - name: Create/Update GitHub Issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Production smoke test failed';
+            const body = `Smoke test failed on ${new Date().toISOString()}\nRun: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const { data: issues } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open' });
+            const existing = issues.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+            } else {
+              await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['ops','smoke'] });
+            }
+

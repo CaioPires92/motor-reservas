@@ -5,15 +5,18 @@
     "type": "module",
     "scripts": {
         "dev": "node src/app.js",
-        "test": "cross-env DATABASE_URL=\"file:./test.db\" prisma db push --schema src/prisma/schema.prisma && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --detectOpenHandles --forceExit",
+        "test": "node scripts/test-runner.mjs",
         "prisma:generate": "prisma generate --schema src/prisma/schema.prisma",
         "prisma:push": "prisma db push --schema src/prisma/schema.prisma",
         "prisma:migrate:deploy": "prisma migrate deploy --schema src/prisma/schema.prisma",
         "db:seed": "node src/prisma/seed.js",
+        "db:patch:images": "node src/prisma/patchImages.js",
         "start": "node src/app.js"
     },
     "dependencies": {
         "@prisma/client": "^5.0.0",
+        "@sentry/node": "^7.120.0",
+        "compression": "^1.7.4",
         "cors": "^2.8.5",
         "dotenv": "^16.0.3",
         "express": "^4.18.2",
