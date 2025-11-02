@@ -485,6 +485,12 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
   - `SENTRY_DSN` — opcional, ativa captura de erros no backend
   - `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_RESERVAS_MAX`, `RATE_LIMIT_PIX_MAX` — limites configuráveis de rate limit
 
+#### Nota sobre SQLite no Render (plano free)
+
+- O sistema de arquivos é efêmero; dados em SQLite não persistem entre deploys/restarts.
+- Use `DATABASE_URL="file:./src/prisma/dev.db"` apenas para testes com o PIX stub e validações rápidas.
+- Em produção, utilize um Postgres gerenciado e `npx prisma migrate deploy` no build para manter migrações versionadas.
+
 ### Histórico de reservas (minimalista)
 
 - Endpoint dedicado: `GET /api/reservas/historico?email=SEU_EMAIL`
