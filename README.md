@@ -19,9 +19,10 @@
 
 1) Backend (Render)
 - Tipo: Web Service, Root: `backend`
-- Build: `npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma migrate deploy --schema src/prisma/schema.prisma && node src/prisma/seed.js`
+- Build (SQLite testes): `npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma db push --schema src/prisma/schema.prisma && node src/prisma/seed.js`
+- Build (PostgreSQL produção): `npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma migrate deploy --schema src/prisma/schema.prisma && node src/prisma/seed.js`
 - Start: `node src/app.js`
-- Variáveis: defina `DATABASE_URL` (PostgreSQL do Render), `PIX_STUB=true` (MVP), `CORS_ALLOWED_ORIGINS=https://magnificent-moxie-8bdddd.netlify.app` e (opcional) `AVAILABILITY_URL`. Para PIX real: `PIX_STUB=false` + `MP_ACCESS_TOKEN`.
+- Variáveis: para testes, defina `DATABASE_URL="file:./src/prisma/dev.db"` (SQLite efêmero em Render free), `PIX_STUB=true` (MVP), `CORS_ALLOWED_ORIGINS=https://magnificent-moxie-8bdddd.netlify.app` e (opcional) `AVAILABILITY_URL`. Para produção com persistência, use PostgreSQL no Render: `DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB?sslmode=require"`. Para PIX real: `PIX_STUB=false` + `MP_ACCESS_TOKEN`.
 
 2) Frontend (Netlify)
 - Base: `frontend`, Build: `npm ci && npm run build`, Publish: `frontend/dist`
@@ -215,7 +216,7 @@ motor-reservas/
   - `[build] base = "frontend"`, `publish = "dist"`, `command = "npm install && npm run build"`.
   - `[dev] framework = "vite"`, `port = 5173` e `targetPort = 5173`.
 - Render (`render.yaml`):
-  - Build com `prisma generate`, `migrate deploy` e `seed`.
+  - Build com `prisma generate`, `db push` (SQLite em testes) ou `migrate deploy` (PostgreSQL em produção), e `seed`.
   - Variáveis de ambiente para rate limiting, CORS, PIX e disponibilidade.
 - GitHub Actions:
   - `ci-cd.yml`: testes backend/frontend/services e deploy automatizado (Netlify + Render) com segredos.
