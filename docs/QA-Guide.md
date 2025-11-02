@@ -75,6 +75,7 @@ Importe a coleção, ajuste `baseUrl` (e `apiBase` se necessário) e use os requ
 - Em produção, restrinja CORS com `CORS_ALLOWED_ORIGINS` aos domínios do frontend.
 - Para reproduzir conflito de disponibilidade de forma determinística, use sempre o mesmo `quartoId` com intervalos sobrepostos.
 - Mantenha logs do Render abertos durante os testes para inspecionar erros do servidor.
+- CI/CD: em pipelines, prefira `npm ci` em vez de `npm install` para instalações reproduzíveis a partir do `package-lock.json`. Em ambientes locais, `npm install` é suficiente.
 
 ## Opcional: curl
 
@@ -87,4 +88,3 @@ curl -s -X POST {{apiBase}}/reservas -H 'Content-Type: application/json' \
 curl -s -X POST {{apiBase}}/pagamento/pix -H 'Content-Type: application/json' \
   -d '{"email":"cliente@exemplo.com","total":350}'
 ```
-
