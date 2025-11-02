@@ -212,8 +212,8 @@ motor-reservas/
   - Tailwind configurado e `index.css` com estilos base.
 
 ### Infra / CI/CD
-- Netlify (`netlify.toml`):
-  - `[build] base = "frontend"`, `publish = "dist"`, `command = "npm install && npm run build"`.
+ - Netlify (`netlify.toml`):
+  - `[build] base = "frontend"`, `publish = "dist"`, `command = "npm ci && npm run build"`.
   - `[dev] framework = "vite"`, `port = 5173` e `targetPort = 5173`.
 - Render (`render.yaml`):
   - Build com `prisma generate`, `db push` (SQLite em testes) ou `migrate deploy` (PostgreSQL em produção), e `seed`.
@@ -664,6 +664,7 @@ Alternativas prontas:
 - [PRD](docs/PRD.md)
 - [Arquitetura DDD](docs/DDD-architecture.md)
 - [Guia de QA](docs/QA-Guide.md)
+ - [CHANGELOG](CHANGELOG.md)
 - Crie outros guias (ex.: visão de dados, convenções de código) conforme o projeto evoluir.
 
 ## 🤝 Contribuição
