@@ -491,6 +491,23 @@ Este guia consolida variáveis, comandos e etapas para publicar um MVP simples e
 - Use `DATABASE_URL="file:./src/prisma/dev.db"` apenas para testes com o PIX stub e validações rápidas.
 - Em produção, utilize um Postgres gerenciado e `npx prisma migrate deploy` no build para manter migrações versionadas.
 
+#### Supabase (PostgreSQL gerenciado)
+
+- Supabase fornece um Postgres gerenciado e compatível com Prisma.
+- Obtenha a string de conexão em: Project Settings → Database → Connection string → `URI`.
+- Exemplo de `DATABASE_URL`:
+  - `postgresql://postgres:SEU_PASSWORD@db.SEU_PROJETO.supabase.co:5432/postgres?sslmode=require`
+  - (Opcional) defina schema: `...&schema=public`
+- Configure no `.env` do backend:
+  - `DATABASE_URL="postgresql://..."`
+- Build para produção (com migrações):
+  - `npx prisma generate --schema src/prisma/schema.prisma`
+  - `npx prisma migrate deploy --schema src/prisma/schema.prisma`
+- Testes com Supabase (use DB/schema dedicado):
+  - PowerShell: `$env:TEST_DATABASE_URL="postgresql://..."; npm test`
+  - Bash: `TEST_DATABASE_URL="postgresql://..." npm test`
+  - Observação: a suíte cria/limpa dados; não utilize o banco de produção.
+
 ### Histórico de reservas (minimalista)
 
 - Endpoint dedicado: `GET /api/reservas/historico?email=SEU_EMAIL`
