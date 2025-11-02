@@ -7,7 +7,8 @@ services:
     # SQLite efêmero no plano free (sem disco anexado)
 
     # Produção: usa migrações versionadas do Prisma com PostgreSQL
-    buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma migrate deploy --schema src/prisma/schema.prisma && node src/prisma/seed.js
+    # Build para SQLite em testes: sincroniza schema com db push (sem migrations versionadas)
+    buildCommand: npm install && npx prisma generate --schema src/prisma/schema.prisma && npx prisma db push --schema src/prisma/schema.prisma && node src/prisma/seed.js
 
     startCommand: node src/app.js
     healthCheckPath: /health
@@ -16,6 +17,7 @@ services:
       - key: NODE_VERSION
         value: "18"
       - key: DATABASE_URL
+        value: "file:./src/prisma/dev.db"
         sync: false
       - key: SENTRY_DSN
         sync: false
