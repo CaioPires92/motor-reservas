@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Quarto {
+  id          Int       @id @default(autoincrement())
+  nome        String
+  descricao   String
+  precoNoite  Float
+  imagens     String?
+  capacidade  Int
+  reservas    Reserva[]
+}
+
+model Reserva {
+  id          Int      @id @default(autoincrement())
+  quartoId    Int
+  quarto      Quarto   @relation(fields: [quartoId], references: [id])
+  nomeCliente String
+  email       String
+  checkin     DateTime
+  checkout    DateTime
+  guests      Int      @default(1)
+  total       Float
+  status      String   @default("pendente")
+  mpPaymentId String?
+  criadoEm    DateTime @default(now())
+
+  @@index([quartoId, checkin, checkout], name: "idx_reserva_quarto_periodo")
+  @@index([email, criadoEm], name: "idx_reserva_email_criadoEm")
+}
+

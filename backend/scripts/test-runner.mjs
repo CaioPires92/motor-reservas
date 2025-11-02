@@ -13,17 +13,18 @@ if (!dbUrl) {
   process.exit(1);
 }
 
+const isSQLite = dbUrl.startsWith('file:');
+const schemaFile = isSQLite ? 'src/prisma/schema.test.prisma' : 'src/prisma/schema.prisma';
 const common = { stdio: 'inherit', shell: true, cwd: root, env: { ...process.env, DATABASE_URL: dbUrl } };
 
-console.log('[TEST] Prisma generate...');
-let r = spawnSync('npx', ['prisma', 'generate', '--schema', 'src/prisma/schema.prisma'], common);
+console.log(`[TEST] Prisma generate (schema: ${schemaFile})...`);
+let r = spawnSync('npx', ['prisma', 'generate', '--schema', schemaFile], common);
 if (r.status !== 0) process.exit(r.status ?? 1);
 
-console.log('[TEST] Prisma db push...');
-r = spawnSync('npx', ['prisma', 'db', 'push', '--schema', 'src/prisma/schema.prisma'], common);
+console.log(`[TEST] Prisma db push (schema: ${schemaFile})...`);
+r = spawnSync('npx', ['prisma', 'db', 'push', '--schema', schemaFile], common);
 if (r.status !== 0) process.exit(r.status ?? 1);
 
 console.log('[TEST] Jest...');
 r = spawnSync('node', ['--experimental-vm-modules', './node_modules/jest/bin/jest.js', '--detectOpenHandles', '--forceExit'], common);
 process.exit(r.status ?? 0);
-
