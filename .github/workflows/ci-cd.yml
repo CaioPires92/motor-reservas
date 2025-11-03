@@ -130,21 +130,14 @@ jobs:
         run: |
           npm install
           npm run build -- --mode=production
-      - name: Deploy frontend to Netlify
+      - name: Deploy frontend to Netlify (official action)
         if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
-        working-directory: frontend
-        run: |
-          npm install -g netlify-cli
-          # Pre-link the site to avoid interactive prompts
-          netlify link --id "$NETLIFY_SITE_ID"
-          # Use explicit auth and non-interactive flags
-          netlify deploy \
-            --auth "$NETLIFY_AUTH_TOKEN" \
-            --site "$NETLIFY_SITE_ID" \
-            --dir "dist" \
-            --prod \
-            --message "CI deploy ${GITHUB_SHA}" \
-            --json
+        uses: netlify/actions/cli@v4
+        with:
+          args: deploy --dir frontend/dist --prod --message "CI deploy ${GITHUB_SHA}" --json
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       - name: Trigger Render deploy
         if: ${{ env.RENDER_API_KEY && env.RENDER_BACKEND_SERVICE_ID }}
         run: |
