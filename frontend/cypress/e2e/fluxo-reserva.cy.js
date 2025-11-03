@@ -1,7 +1,7 @@
 describe('Fluxo de reserva com disponibilidade e PIX', () => {
   it('lista quartos, checa disponibilidade, reserva e exibe PIX', () => {
     // Intercepta listagem de quartos
-    cy.intercept('GET', '/api/quartos', { fixture: 'rooms.json' }).as('getQuartos');
+    cy.intercept('GET', '**/quartos', { fixture: 'rooms.json' }).as('getQuartos');
 
     cy.visit('/');
     cy.wait('@getQuartos');
@@ -18,7 +18,7 @@ describe('Fluxo de reserva com disponibilidade e PIX', () => {
     cy.get('[data-cy="input-guests"]').clear().type('2');
 
     // Intercepta disponibilidade
-    cy.intercept('GET', '/api/disponibilidade*', {
+    cy.intercept('GET', '**/disponibilidade*', {
       statusCode: 200,
       body: { availableRooms: [{ id: 101 }, { id: 202 }] }
     }).as('getDisp');
@@ -29,13 +29,13 @@ describe('Fluxo de reserva com disponibilidade e PIX', () => {
     cy.contains('Quarto selecionado está disponível').should('be.visible');
 
     // Intercepta criação de reserva
-    cy.intercept('POST', '/api/reservas', {
+    cy.intercept('POST', '**/reservas', {
       statusCode: 200,
       body: { id: 123, total: 350 }
     }).as('postReserva');
 
     // Intercepta PIX
-    cy.intercept('POST', '/api/pagamento/pix', {
+    cy.intercept('POST', '**/pagamento/pix', {
       statusCode: 200,
       body: {
         qr_code_base64: 'iVBORw0KGgoAAAAN',

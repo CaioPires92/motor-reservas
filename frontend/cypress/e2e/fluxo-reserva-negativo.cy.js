@@ -1,6 +1,6 @@
 describe('Fluxo de reserva - cenários negativos', () => {
   beforeEach(() => {
-    cy.intercept('GET', '/api/quartos', { fixture: 'rooms.json' }).as('getQuartos');
+    cy.intercept('GET', '**/quartos', { fixture: 'rooms.json' }).as('getQuartos');
     cy.visit('/');
     cy.wait('@getQuartos');
   });
@@ -18,7 +18,7 @@ describe('Fluxo de reserva - cenários negativos', () => {
     cy.get('[data-cy="input-guests"]').clear().type('2');
 
     // Nenhuma disponibilidade
-    cy.intercept('GET', '/api/disponibilidade*', {
+    cy.intercept('GET', '**/disponibilidade*', {
       statusCode: 200,
       body: { availableRooms: [] }
     }).as('getDisp');
@@ -50,7 +50,7 @@ describe('Fluxo de reserva - cenários negativos', () => {
     cy.wait('@getDispOk');
 
     // Reserva falha
-    cy.intercept('POST', '/api/reservas', {
+    cy.intercept('POST', '**/reservas', {
       statusCode: 500,
       body: { error: 'Falha ao criar reserva' }
     }).as('postReservaFail');
@@ -86,7 +86,7 @@ describe('Fluxo de reserva - cenários negativos', () => {
     }).as('postReservaOk');
 
     // PIX falha
-    cy.intercept('POST', '/api/pagamento/pix', {
+    cy.intercept('POST', '**/pagamento/pix', {
       statusCode: 500,
       body: { error: 'Falha ao gerar PIX' }
     }).as('postPixFail');
@@ -97,4 +97,3 @@ describe('Fluxo de reserva - cenários negativos', () => {
     cy.get('[data-cy="status-message"]').should('contain', 'Falha ao gerar PIX');
   });
 });
-
