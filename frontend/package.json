@@ -6,7 +6,9 @@
     "dev": "vite",
     "dev:full": "concurrently \"npm:dev\" \"npm --prefix ../backend run dev\"",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --host --port 4173",
+    "dev:preview:full": "concurrently \"npm:preview\" \"npm --prefix ../backend run dev\"",
+    "test:e2e:preview": "start-server-and-test dev:preview:full http://localhost:4173 http-get://localhost:4000/health test:e2e",
     "test:e2e": "cypress run",
     "test:e2e:dev": "start-server-and-test dev:full http://localhost:5173 http-get://localhost:4000/health test:e2e",
     "report:e2e": "mochawesome-merge cypress/reports/.jsons/*.json -o cypress/reports/mochawesome.json && marge cypress/reports/mochawesome.json -f index -o cypress/reports"
