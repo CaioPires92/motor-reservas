@@ -1,4 +1,5 @@
 # 🏨 Motor Reservas — Plataforma de reservas com PIX e CI/CD
+> Nota técnica: commit mínimo para disparar o pipeline CI/CD.
 
 ### Links rápidos
 - [Checklist MVP](#checklist-mvp-rápido)
