@@ -500,6 +500,72 @@ app.post("/api/pagamento/pix", pixLimiterMw, async (req, res) => {
   }
 });
 
+// Compat: alguns frontends legados chamam /api/reservas/create-payment
+// Este alias processa como PIX e registra aviso para atualizar o frontend.
+app.post("/api/reservas/create-payment", pixLimiterMw, async (req, res) => {
+  try {
+    console.warn("[compat] /api/reservas/create-payment utilizado; atualize o frontend para /api/pagamento/pix");
+    const b = req.body || {};
+    const email = b.email || b?.payer?.email;
+    const total = b.total ?? b?.amount ?? b?.transaction_amount;
+    const reservaId = b.reservaId ?? b.id ?? b?.reservationId;
+
+    if (reservaId && Number.isFinite(Number(reservaId))) {
+      const r = await prisma.reserva.findUnique({ where: { id: Number(reservaId) } });
+      if (!r) return res.status(404).json({ error: "Reserva não encontrada para gerar PIX" });
+    }
+
+    if (PIX_STUB) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(String(email)) || Number(total) <= 0) {
+        return res.status(400).json({ error: "Email ou total inválido" });
+      }
+      const code = `PIX-STUB|email:${email}|total:${Number(total).toFixed(2)}|ts:${Date.now()}`;
+      const qrDataUrl = await QRCode.toDataURL(code);
+      return res.json({
+        qr_code_base64: qrDataUrl.replace(/^data:image\/png;base64,/, ""),
+        qr_code: code,
+        id: `stub-${Date.now()}`,
+      });
+    }
+
+    if (!MP_TOKEN) {
+      return res.status(503).json({ error: "Pagamento PIX indisponível: token não configurado" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(email)) || Number(total) <= 0) {
+      return res.status(400).json({ error: "Email ou total inválido" });
+    }
+
+    const payment = await mpPayment.create({
+      body: {
+        transaction_amount: Number(total),
+        description: "Reserva de hotel",
+        payment_method_id: "pix",
+        payer: { email },
+        external_reference: reservaId ? String(reservaId) : undefined,
+      }
+    });
+    const body = payment?.body ?? payment;
+    try {
+      if (reservaId && body?.id) {
+        await prisma.reserva.update({ where: { id: Number(reservaId) }, data: { mpPaymentId: String(body.id) } });
+      }
+    } catch (e) {
+      console.warn("[pix-compat] falha ao vincular mpPaymentId à reserva:", e?.message || e);
+    }
+    return res.json({
+      qr_code_base64: body?.point_of_interaction?.transaction_data?.qr_code_base64,
+      qr_code: body?.point_of_interaction?.transaction_data?.qr_code,
+      id: body?.id,
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Erro ao processar pagamento PIX (compat)" });
+  }
+});
+
 // Pagamento com Cartão (Mercado Pago)
 app.post("/api/pagamento/cartao", cardLimiterMw, async (req, res) => {
   try {
