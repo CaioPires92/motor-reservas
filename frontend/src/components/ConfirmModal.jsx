@@ -4,7 +4,6 @@ export default function ConfirmModal({ open, onClose, reservaId, pix, apiBase })
   const [status, setStatus] = useState(null);
   const attemptsRef = useRef(0);
   const pollingRef = useRef(null);
-  if (!open) return null;
 
   const copyPix = async () => {
     try {
@@ -64,6 +63,10 @@ export default function ConfirmModal({ open, onClose, reservaId, pix, apiBase })
       }
     };
   }, [open, reservaId, apiBase]);
+
+  // Evita renderização do modal quando não está aberto,
+  // mas garante que todos os hooks acima sejam sempre executados.
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
