@@ -41,7 +41,7 @@ jobs:
 
       - name: Upload backend coverage artifact
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
           path: backend/coverage
@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload Cypress report artifact
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cypress-e2e-report
           path: frontend/cypress/reports
@@ -86,7 +86,7 @@ jobs:
 
       - name: Upload availability coverage artifact
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: availability-coverage
           path: services/availability/coverage
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload booking coverage artifact
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: booking-coverage
           path: services/booking/coverage
