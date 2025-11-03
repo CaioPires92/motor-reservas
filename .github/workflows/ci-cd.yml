@@ -130,14 +130,29 @@ jobs:
         run: |
           npm install
           npm run build -- --mode=production
-      - name: Deploy frontend to Netlify (official action)
+      - name: Verify build output exists
+        run: |
+          if [ ! -d "frontend/dist" ]; then
+            echo "Build output not found at frontend/dist" >&2
+            exit 1
+          fi
+          ls -la frontend/dist
+      - name: Install Netlify CLI
         if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
-        uses: netlify/actions/cli@v3
-        with:
-          args: deploy --dir frontend/dist --prod --message "CI deploy ${GITHUB_SHA}" --json
+        run: npm install -g netlify-cli
+      - name: Deploy frontend to Netlify (CLI)
+        if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          netlify deploy \
+            --auth "$NETLIFY_AUTH_TOKEN" \
+            --site "$NETLIFY_SITE_ID" \
+            --dir frontend/dist \
+            --prod \
+            --message "CI deploy ${GITHUB_SHA}" \
+            --json
       - name: Trigger Render deploy
         if: ${{ env.RENDER_API_KEY && env.RENDER_BACKEND_SERVICE_ID }}
         run: |
