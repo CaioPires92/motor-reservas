@@ -24,14 +24,16 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
-      - name: Generate Prisma client
+      - name: Generate Prisma client (SQLite for CI)
         working-directory: backend
-        run: npx prisma generate --schema src/prisma/schema.prisma
-      # - name: Prepare dev SQLite schema (Prisma db push)
-      #   working-directory: backend
-      #   env:
-      #     DATABASE_URL: file:./test.db
-      #   run: npm run prisma:push
+        env:
+          DATABASE_URL: file:./test.db
+        run: npx prisma generate --schema src/prisma/schema.sqlite.prisma
+      - name: Prepare dev SQLite schema (Prisma db push)
+        working-directory: backend
+        env:
+          DATABASE_URL: file:./test.db
+        run: npx prisma db push --schema src/prisma/schema.sqlite.prisma
       - name: Run backend tests
         working-directory: backend
         env:
