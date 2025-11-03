@@ -1,5 +1,6 @@
 [build]
-  command = "npm run build"
+  base = 'frontend'
+  command = 'npm install && npm run build'
   publish = "frontend/dist"
 
 [[redirects]]
@@ -12,9 +13,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
-  base = "frontend"
-  publish = "dist"
-  command = "npm ci && npm run build"
 
 [dev]
   command = "npm run dev"
