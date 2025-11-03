@@ -77,7 +77,7 @@ export default function App() {
             };
 
             const { data } = await axios.post(`${API_BASE}/reservas`, payload);
-            setStatus({ type: "success", message: `Reserva criada! ID ${data.id}. Total: R$ ${data.total.toFixed(2)}` });
+            setStatus({ type: "success", message: `Reserva criada! ID ${data.id}. Total: R$ ${Number(data.total).toFixed(2)}` });
             setLastReservaId(data.id);
             setShowConfirm(true);
 

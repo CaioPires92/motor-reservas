@@ -25,7 +25,7 @@ export default function RoomCard({ room, available, onSelect, nights = 0, format
       )}
       <h2 className="text-xl font-semibold">{room.nome}</h2>
       <p>{room.descricao}</p>
-      <p className="font-bold mt-2">R$ {room.precoNoite.toFixed(2)} / noite</p>
+      <p className="font-bold mt-2">R$ {Number(room.precoNoite ?? 0).toFixed(2)} / noite</p>
       <p className="text-sm text-gray-500">Capacidade: {room.capacidade}</p>
       {nights > 0 && (
         <p className="text-sm mt-1">

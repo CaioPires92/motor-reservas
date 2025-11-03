@@ -246,6 +246,8 @@ DATABASE_URL="file:./src/prisma/dev.db"
 PIX_STUB=true
 MP_ACCESS_TOKEN=
 AVAILABILITY_URL=http://localhost:4100
+# (Opcional) TEST_DATABASE_URL para rodar testes contra Supabase/PostgreSQL
+# TEST_DATABASE_URL="postgresql://postgres:SEU_PASSWORD@db.SEU_PROJETO.supabase.co:5432/postgres?sslmode=require&schema=test"
 ```
 
 - Desenvolvimento:

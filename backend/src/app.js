@@ -76,17 +76,30 @@ app.use(express.json());
 const RL_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000);
 const RL_RES_MAX = Number(process.env.RATE_LIMIT_RESERVAS_MAX || 10);
 const RL_PIX_MAX = Number(process.env.RATE_LIMIT_PIX_MAX || 10);
-const reservasLimiter = rateLimit({
-  windowMs: RL_WINDOW_MS,
-  max: RL_RES_MAX,
-  message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
-});
-const pixLimiter = rateLimit({
-  windowMs: RL_WINDOW_MS,
-  max: RL_PIX_MAX,
-  message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
-});
-const cardLimiter = pixLimiter;
+// Em ambiente de teste, não aplicar rate limiting para evitar timers/handles abertos
+const useLimiter = process.env.NODE_ENV !== "test";
+let reservasLimiterMw, pixLimiterMw, cardLimiterMw;
+if (useLimiter) {
+  const reservasLimiter = rateLimit({
+    windowMs: RL_WINDOW_MS,
+    max: RL_RES_MAX,
+    message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
+  });
+  const pixLimiter = rateLimit({
+    windowMs: RL_WINDOW_MS,
+    max: RL_PIX_MAX,
+    message: { error: "Limite de requisições excedido. Tente novamente em instantes." },
+  });
+  const cardLimiter = pixLimiter;
+  reservasLimiterMw = reservasLimiter;
+  pixLimiterMw = pixLimiter;
+  cardLimiterMw = cardLimiter;
+} else {
+  const pass = (req, res, next) => next();
+  reservasLimiterMw = pass;
+  pixLimiterMw = pass;
+  cardLimiterMw = pass;
+}
 
 // Health check simples com verificação do banco e flags de serviços
 app.get("/health", async (req, res) => {
@@ -143,7 +156,7 @@ app.get("/api/quartos", async (req, res) => {
 });
 
 // --- Reservas ---
-app.post("/api/reservas", reservasLimiter, async (req, res) => {
+app.post("/api/reservas", reservasLimiterMw, async (req, res) => {
   try {
     const { quartoId, nomeCliente, email, checkin, checkout } = req.body;
     const guestsRaw = req.body.guests ?? 1;
@@ -421,7 +434,7 @@ app.delete("/api/reservas/:id", async (req, res) => {
 });
 
 // --- Pagamento PIX ---
-app.post("/api/pagamento/pix", pixLimiter, async (req, res) => {
+app.post("/api/pagamento/pix", pixLimiterMw, async (req, res) => {
   try {
     const { email, total, reservaId } = req.body;
 
@@ -488,7 +501,7 @@ app.post("/api/pagamento/pix", pixLimiter, async (req, res) => {
 });
 
 // Pagamento com Cartão (Mercado Pago)
-app.post("/api/pagamento/cartao", cardLimiter, async (req, res) => {
+app.post("/api/pagamento/cartao", cardLimiterMw, async (req, res) => {
   try {
     if (!MP_TOKEN) {
       return res.status(503).json({ error: "Cartão indisponível: token não configurado" });
