@@ -134,7 +134,7 @@ jobs:
           npm run build -- --mode=production
 
       - name: Deploy frontend to Netlify
-        if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' && secrets.NETLIFY_SITE_ID != '' }}
+        if: ${{ env.NETLIFY_AUTH_TOKEN != '' && env.NETLIFY_SITE_ID != '' }}
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
@@ -143,7 +143,7 @@ jobs:
           netlify deploy --dir=frontend/dist --prod --site "$NETLIFY_SITE_ID"
 
       - name: Trigger Render deploy
-        if: ${{ secrets.RENDER_API_KEY != '' && secrets.RENDER_BACKEND_SERVICE_ID != '' }}
+        if: ${{ env.RENDER_API_KEY != '' && env.RENDER_BACKEND_SERVICE_ID != '' }}
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_BACKEND_SERVICE_ID: ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
