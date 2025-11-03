@@ -34,6 +34,11 @@ jobs:
         env:
           DATABASE_URL: file:./test.db
         run: npx prisma db push --schema src/prisma/schema.sqlite.prisma
+      - name: Seed dev SQLite data
+        working-directory: backend
+        env:
+          DATABASE_URL: file:./test.db
+        run: npm run db:seed
       - name: Run backend tests
         working-directory: backend
         env:

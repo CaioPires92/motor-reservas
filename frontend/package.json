@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:e2e": "cypress run",
-    "test:e2e:dev": "start-server-and-test dev:full http://localhost:5173 test:e2e",
+    "test:e2e:dev": "start-server-and-test dev:full http://localhost:5173 http-get://localhost:4000/health test:e2e",
     "report:e2e": "mochawesome-merge cypress/reports/.jsons/*.json -o cypress/reports/mochawesome.json && marge cypress/reports/mochawesome.json -f index -o cypress/reports"
   },
     "dependencies": {
