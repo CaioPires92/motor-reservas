@@ -58,12 +58,11 @@ jobs:
       - name: Run frontend E2E tests (Cypress)
         working-directory: frontend
         env:
-          CYPRESS_baseUrl: http://localhost:4173
-          VITE_API_URL: http://localhost:4000
+          CYPRESS_baseUrl: http://localhost:5173
           PIX_STUB: true
           DATABASE_URL: "file:./test.db"
           PORT: 4000
-        run: npm run test:e2e:preview
+        run: npm run test:e2e:dev
       - name: Generate Cypress HTML report
         working-directory: frontend
         run: npm run report:e2e
