@@ -33,6 +33,12 @@ jobs:
         working-directory: backend
         run: npx prisma generate --schema src/prisma/schema.prisma
 
+      - name: Prepare dev SQLite schema (Prisma db push)
+        working-directory: backend
+        env:
+          DATABASE_URL: "file:./src/prisma/dev.db"
+        run: npm run prisma:push
+
       - name: Run backend tests
         working-directory: backend
         env:
