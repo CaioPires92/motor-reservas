@@ -1,11 +1,9 @@
 name: CI/CD
-
 on:
   push:
     branches:
       - main
   pull_request:
-
 jobs:
   test:
     name: Install & Test
@@ -13,7 +11,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -24,27 +21,22 @@ jobs:
             backend/package-lock.json
             services/availability/package-lock.json
             services/booking/package-lock.json
-
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
-
       - name: Generate Prisma client
         working-directory: backend
         run: npx prisma generate --schema src/prisma/schema.prisma
-
       - name: Prepare dev SQLite schema (Prisma db push)
         working-directory: backend
         env:
-          DATABASE_URL: "file:./src/prisma/dev.db"
+          DATABASE_URL: file:./test.db
         run: npm run prisma:push
-
       - name: Run backend tests
         working-directory: backend
         env:
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: npm test -- --coverage --watch=false
-
       - name: Upload backend coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -53,11 +45,9 @@ jobs:
           path: backend/coverage
           if-no-files-found: warn
           retention-days: 7
-
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-
       - name: Run frontend E2E tests (Cypress)
         working-directory: frontend
         env:
@@ -65,11 +55,9 @@ jobs:
           PIX_STUB: true
           DATABASE_URL: "file:./src/prisma/dev.db"
         run: npm run test:e2e:dev
-
       - name: Generate Cypress HTML report
         working-directory: frontend
         run: npm run report:e2e
-
       - name: Upload Cypress report artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,19 +66,15 @@ jobs:
           path: frontend/cypress/reports
           if-no-files-found: warn
           retention-days: 7
-
       - name: Build frontend
         working-directory: frontend
         run: npm run build -- --mode=production
-
       - name: Install availability service dependencies
         working-directory: services/availability
         run: npm ci
-
       - name: Run availability service tests
         working-directory: services/availability
         run: npm test -- --coverage --watch=false
-
       - name: Upload availability coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,15 +83,12 @@ jobs:
           path: services/availability/coverage
           if-no-files-found: warn
           retention-days: 7
-
       - name: Install booking service dependencies
         working-directory: services/booking
         run: npm ci
-
       - name: Run booking service tests
         working-directory: services/booking
         run: npm test -- --coverage --watch=false
-
       - name: Upload booking coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -116,7 +97,6 @@ jobs:
           path: services/booking/coverage
           if-no-files-found: warn
           retention-days: 7
-
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -125,7 +105,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -133,13 +112,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: |
             frontend/package-lock.json
-
       - name: Build frontend
         working-directory: frontend
         run: |
           npm install
           npm run build -- --mode=production
-
       - name: Deploy frontend to Netlify
         if: ${{ env.NETLIFY_AUTH_TOKEN != '' && env.NETLIFY_SITE_ID != '' }}
         env:
@@ -148,7 +125,6 @@ jobs:
         run: |
           npm install -g netlify-cli
           netlify deploy --dir=frontend/dist --prod --site "$NETLIFY_SITE_ID"
-
       - name: Trigger Render deploy
         if: ${{ env.RENDER_API_KEY != '' && env.RENDER_BACKEND_SERVICE_ID != '' }}
         env:
