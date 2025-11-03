@@ -698,3 +698,4 @@ Alternativas prontas:
 
 Defina a licença do projeto (MIT, Apache-2.0, etc.) em um arquivo `LICENSE`. Caso esteja migrando para um repositório privado do Codex, siga as políticas internas da sua organização.
 
+\n+chore(ci): commit de teste para disparar pipeline CI/CD
