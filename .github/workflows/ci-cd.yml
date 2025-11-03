@@ -132,13 +132,16 @@ jobs:
           npm run build -- --mode=production
       - name: Deploy frontend to Netlify
         if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
+        working-directory: frontend
         run: |
           npm install -g netlify-cli
-          # Use explicit auth and non-interactive flags to avoid prompts
+          # Pre-link the site to avoid interactive prompts
+          netlify link --id "$NETLIFY_SITE_ID"
+          # Use explicit auth and non-interactive flags
           netlify deploy \
             --auth "$NETLIFY_AUTH_TOKEN" \
             --site "$NETLIFY_SITE_ID" \
-            --dir "frontend/dist" \
+            --dir "dist" \
             --prod \
             --message "CI deploy ${GITHUB_SHA}" \
             --json
