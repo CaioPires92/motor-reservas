@@ -140,6 +140,20 @@ jobs:
       - name: Install Netlify CLI
         if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
         run: npm install -g netlify-cli
+      - name: Netlify auth sanity check
+        if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
+        run: |
+          netlify status --json || {
+            echo "Netlify auth check failed (token inválido/sem escopo)." >&2
+            exit 1
+          }
+      - name: Netlify site sanity check
+        if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
+        run: |
+          netlify api getSite --data '{"site_id":"'"$NETLIFY_SITE_ID"'"}' --json || {
+            echo "Netlify site check failed (SITE_ID incorreto ou sem permissão)." >&2
+            exit 1
+          }
       - name: Deploy frontend to Netlify (CLI)
         if: ${{ env.NETLIFY_AUTH_TOKEN && env.NETLIFY_SITE_ID }}
         env:
@@ -151,6 +165,7 @@ jobs:
             --site "$NETLIFY_SITE_ID" \
             --dir frontend/dist \
             --prod \
+            --debug \
             --message "CI deploy ${GITHUB_SHA}" \
             --json
       - name: Trigger Render deploy
