@@ -57,6 +57,7 @@ jobs:
         env:
           CYPRESS_baseUrl: http://localhost:5173
           PIX_STUB: true
+          DATABASE_URL: "file:./src/prisma/dev.db"
         run: npm run test:e2e:dev
 
       - name: Generate Cypress HTML report
