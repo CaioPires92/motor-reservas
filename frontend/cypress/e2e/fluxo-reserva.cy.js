@@ -11,11 +11,11 @@ describe('Fluxo de reserva com disponibilidade e PIX', () => {
     cy.contains('Selecionar').first().click();
 
     // Preenche dados
-    cy.get('input[placeholder="Nome"]').type('Cliente Teste');
-    cy.get('input[placeholder="Email"]').type('cliente@teste.com');
-    cy.get('input[type="date"]').first().type('2025-11-01');
-    cy.get('input[type="date"]').eq(1).type('2025-11-03');
-    cy.get('input[placeholder="Hóspedes"]').type('2');
+    cy.get('[data-cy="input-name"]').type('Cliente Teste');
+    cy.get('[data-cy="input-email"]').type('cliente@teste.com');
+    cy.get('[data-cy="input-checkin"]').type('2025-11-01');
+    cy.get('[data-cy="input-checkout"]').type('2025-11-03');
+    cy.get('[data-cy="input-guests"]').clear().type('2');
 
     // Intercepta disponibilidade
     cy.intercept('GET', '/api/disponibilidade*', {
@@ -24,7 +24,7 @@ describe('Fluxo de reserva com disponibilidade e PIX', () => {
     }).as('getDisp');
 
     // Checa disponibilidade
-    cy.contains('Checar disponibilidade').click();
+    cy.get('[data-cy="check-availability"]').click();
     cy.wait('@getDisp');
     cy.contains('Quarto selecionado está disponível').should('be.visible');
 
@@ -44,7 +44,7 @@ describe('Fluxo de reserva com disponibilidade e PIX', () => {
     }).as('postPix');
 
     // Reserva
-    cy.contains('Reservar').click();
+    cy.get('[data-cy="reserve"]').click();
     cy.wait('@postReserva');
     cy.contains('Reserva criada! ID 123').should('be.visible');
 
