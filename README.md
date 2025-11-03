@@ -1,6 +1,8 @@
 # 🏨 Motor Reservas — Plataforma de reservas com PIX e CI/CD
 > Nota técnica: commit mínimo para disparar o pipeline CI/CD.
 
+chore(ci): teste de deploy automático (secrets atualizados)
+
 ### Links rápidos
 - [Checklist MVP](#checklist-mvp-rápido)
 - [Copiar e colar (PowerShell)](#copiar-e-colar-windows-powershell)
